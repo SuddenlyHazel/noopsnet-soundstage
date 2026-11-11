@@ -21,6 +21,13 @@ class ShowcaseTests(unittest.TestCase):
             self.assertEqual(channels(59)[address - 1], 0)
         self.assertEqual(channels(0), channels(60))
 
+    def test_non_emissive_effects_have_fill_light(self):
+        for t in (20, 22, 25, 28, 30, 32, 38):
+            values = channels(t)
+            for address in [1, *range(17, 46, 4)]:
+                self.assertEqual(values[address - 1:address + 3], [64, 255, 255, 255])
+        self.assertFalse(any(channels(59)[16:48]))
+
     def test_grid_and_bounds(self):
         for frame in range(1800):
             values = channels(frame / 30)

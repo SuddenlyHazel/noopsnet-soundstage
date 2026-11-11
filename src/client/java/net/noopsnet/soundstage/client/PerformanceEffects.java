@@ -34,10 +34,14 @@ final class PerformanceEffects {
             var state=mc.level.getBlockState(e.getKey());if(!state.hasProperty(StageBlock.FACING))continue;
             var facing=state.getValue(StageBlock.FACING);
             if(setting==ParticleStatus.DECREASED)output*=.5f;
-            for(int n=0;n<(c.profile==FixtureProfile.FOG?4:2)&&budget>0;n++)if(mc.level.random.nextFloat()<output){
+            for(int n=0;n<(c.profile==FixtureProfile.FOG?4:8)&&budget>0;n++)if(mc.level.random.nextFloat()<output){
                 budget--;var r=mc.level.random;var p=Vec3.atCenterOf(e.getKey());
                 float spread=c.profile==FixtureProfile.FOG?.1f+c.values[i+1]/255f*.8f:.25f;
-                var particle=c.profile==FixtureProfile.FOG?ParticleTypes.CLOUD:new DustParticleOptions(new Vector3f(c.values[i+1]/255f,c.values[i+2]/255f,c.values[i+3]/255f),1.5f);
+                // Bright sparks carry the fountain, with smaller colored dust
+                // accents. Firework trails remain off: all emission stays inside
+                // our global budget instead of recursively spawning particles.
+                var particle=c.profile==FixtureProfile.FOG?ParticleTypes.CLOUD:n%4==0?
+                    new DustParticleOptions(new Vector3f(c.values[i+1]/255f,c.values[i+2]/255f,c.values[i+3]/255f),1.2f):ParticleTypes.FIREWORK;
                 // Emit through the front nozzle, outside the full-block collision box
                 // including the particle's bounds. Ceiling-mounted machines still work.
                 // Apply our explicit 48-block/budget/settings limits instead of silently
@@ -45,8 +49,16 @@ final class PerformanceEffects {
                 double sideways=(r.nextFloat()-.5)*spread;
                 var spawned=mc.particleEngine.createParticle(particle,p.x+facing.getStepX()*.85+facing.getStepZ()*sideways,p.y+.1,p.z+facing.getStepZ()*.85-facing.getStepX()*sideways,facing.getStepX()*.08+(r.nextFloat()-.5)*spread*.2,.025+output*.025,facing.getStepZ()*.08+(r.nextFloat()-.5)*spread*.2);
                 if(spawned!=null){
-                    emitted.merge(e.getKey(),1,Integer::sum);
+                    int total=emitted.merge(e.getKey(),1,Integer::sum);
+                    if(total==1)System.getLogger(PerformanceEffects.class.getName()).log(System.Logger.Level.INFO,
+                        "Soundstage "+c.profile+" particles created at "+e.getKey().toShortString()+"; DMX "+c.address+" output "+c.values[i]);
                     if(c.profile==FixtureProfile.FOG){spawned.setColor(.92f,.94f,.96f);spawned.scale(2f);spawned.setLifetime(80);}
+                    else {
+                        double speed=.15+output*.18,fan=(r.nextFloat()-.5)*.3;
+                        spawned.setParticleSpeed(facing.getStepX()*speed+facing.getStepZ()*fan,.14+r.nextFloat()*.20,facing.getStepZ()*speed-facing.getStepX()*fan);
+                        spawned.setColor(c.values[i+1]/255f,c.values[i+2]/255f,c.values[i+3]/255f);
+                        spawned.setLifetime(35+r.nextInt(25));spawned.scale(.7f+r.nextFloat()*.7f);
+                    }
                 }
             }
         }

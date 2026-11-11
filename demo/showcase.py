@@ -21,6 +21,12 @@ def channels(seconds):
         color = colorsys.hsv_to_rgb(hue % 1, 0.85, 1)
         v[address - 1:address + 3] = [round(intensity), *(round(c * 255) for c in color)]
 
+    def fill():
+        # Smoke is not emissive. Keep a low neutral wash so the isolated effect
+        # tests remain visible inside an otherwise completely dark venue.
+        for address in [1, *(17 + i * 4 for i in range(PIXELS))]:
+            v[address - 1:address + 3] = [64, 255, 255, 255]
+
     if phase == 0:
         # Three obvious primary tests, then a white reference.
         color = ([255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 255])[min(3, int(local / 2.5))]
@@ -31,10 +37,12 @@ def channels(seconds):
         v[8] = round(128 + 42 * math.sin(2 * math.pi * local / 10))
         v[9] = round(112 + 18 * math.sin(2 * math.pi * local / 5))
     elif phase == 2:
+        fill()
         # Distinct on/off burst, followed by narrow-to-wide output.
         v[10] = 180 if local < 3 or 5 <= local < 9 else 0
         v[11] = round(255 * local / 10)
     elif phase == 3:
+        fill()
         rgb(13, 180 if int(local) % 2 == 0 else 0, local / 10)
     elif phase == 4:
         # Positive-X chase: exactly one addressable block at a time.

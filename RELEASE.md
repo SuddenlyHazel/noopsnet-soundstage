@@ -1,3 +1,13 @@
+# Soundstage 0.3.0-alpha.4
+
+Community alpha.35 includes Afterlight 0.5.3 with shader 0.4.4. Install those two
+together: the lighting-volume format changed. The optional Iris compatibility
+hook routes translucent fog through the correct shader, and corner sampling no
+longer exposes phantom warm blocklight. Normal-less particles receive valid RGB
+lighting. The particle machine now emits a longer, denser colored spark fountain;
+the server demo includes dim white fill during fog/particle sections. Client-only
+update, compatible with the current server. Restart Minecraft.
+
 # Soundstage 0.3.0-alpha.3
 
 Community alpha.34 corrects laser/stage-lens rendering with Photon, removes

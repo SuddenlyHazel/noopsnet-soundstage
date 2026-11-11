@@ -37,8 +37,8 @@ soften the strip chase and blackouts.
 | --- | --- |
 | 0–10 s | Stage Light and all eight pixels show red, green, blue, then white |
 | 10–20 s | Laser changes color and sweeps horizontally and vertically; other effects off |
-| 20–30 s | Fog outputs two bursts with increasing spread; particles already emitted linger |
-| 30–40 s | Colored particles pulse on alternating seconds |
+| 20–30 s | Fog outputs two bursts with increasing spread under dim white fill light; emitted particles linger |
+| 30–40 s | Colored particles pulse on alternating seconds under dim white fill light |
 | 40–50 s | One Afterlight pixel at a time chases toward increasing X |
 | 50–58 s | All fixture types run together with a moving pixel gradient |
 | 58–60 s | All controlled light/output channels are zero; existing particles fade naturally |
