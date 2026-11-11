@@ -7,7 +7,15 @@ import java.util.Arrays;
 /** Dependency-free regression runner; does not claim capture or playback verification. */
 public final class GridProbe {
     private static void check(boolean ok) { if (!ok) throw new AssertionError(); }
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
+        var pcm=new PcmQueue(48000*4*4);
+        // 1.5 seconds of 48 kHz AAC callback blocks: the old 32-chunk queue lost most of these.
+        for(int i=0;i<72;i++)check(pcm.offer(new PcmQueue.Packet(new byte[1024*4],i*1024_000_000L/48000,7))==0);
+        check(pcm.bytes()==72*4096);
+        for(int i=0;i<72;i++){var packet=pcm.poll(1);check(packet.generation()==7&&packet.pts()==i*1024_000_000L/48000&&packet.samples().length==4096);}
+        check(pcm.bytes()==0&&pcm.poll(1)==null);
+        var bounded=new PcmQueue(12);check(bounded.offer(new PcmQueue.Packet(new byte[8],1,0))==0);check(bounded.offer(new PcmQueue.Packet(new byte[8],2,0))==1);check(bounded.bytes()==8&&bounded.poll(1).pts()==2);bounded.clear();check(bounded.bytes()==0);
+
         var slow=new LightSmoother();check(slow.advance(0,0,500)==0);
         int previous=0;for(int i=0;i<180;i++){int current=slow.advance(0x050505,1000.0/60,500);check(current>=previous);previous=current;}check(previous==0x050505);
         var lowFps=new LightSmoother();var highFps=new LightSmoother();lowFps.advance(0,0,500);highFps.advance(0,0,500);

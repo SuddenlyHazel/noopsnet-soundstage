@@ -11,8 +11,10 @@ import net.noopsnet.soundstage.AudioSpatializer;
 
 /** VLC owns presentation time; OpenAL owns spatial rendering, with Java Sound fallback. */
 final class SpatialAudio extends DefaultAudioCallbackAdapter implements AutoCloseable {
-    private record Packet(byte[] samples,long pts,int generation){}
-    private final ArrayBlockingQueue<Packet> queue=new ArrayBlockingQueue<>(32);
+    // VLC commonly delivers more than a second ahead of its presentation clock.
+    // Retain original callback blocks and budget four seconds of 48 kHz stereo PCM.
+    private final net.noopsnet.soundstage.PcmQueue queue=new net.noopsnet.soundstage.PcmQueue(48000*4*4);
+    volatile long receivedBytes,writtenBytes,droppedPackets,latePackets;
     private final Thread worker;private volatile boolean closed,paused;private volatile int generation;
     private volatile double gain,pan,occlusion;
     private volatile OpenAlOutput.Scene scene=new OpenAlOutput.Scene(false,List.of(new OpenAlOutput.Emitter(0,0,-1,0,0)));
@@ -22,7 +24,9 @@ final class SpatialAudio extends DefaultAudioCallbackAdapter implements AutoClos
     void scene(OpenAlOutput.Scene s){scene=s;}
     @Override protected void onPlay(MediaPlayer player,byte[] samples,int count,long pts){
         if(closed||samples.length>192000)return;
-        for(int offset=0;offset<samples.length;offset+=3840){int end=Math.min(offset+3840,samples.length);end-=end%4;if(end<=offset)break;var packet=new Packet(java.util.Arrays.copyOfRange(samples,offset,end),pts+offset*1_000_000L/192000,generation);if(!queue.offer(packet)){queue.poll();queue.offer(packet);}}
+        if(samples.length==0||samples.length%4!=0)return;
+        receivedBytes+=samples.length;
+        droppedPackets+=queue.offer(new net.noopsnet.soundstage.PcmQueue.Packet(samples,pts,generation));
     }
     private void run(){
         OpenAlOutput al=null;SourceDataLine line=null;var dsp=new AudioSpatializer();int current=-1;boolean wasPaused=false;
@@ -36,14 +40,15 @@ final class SpatialAudio extends DefaultAudioCallbackAdapter implements AutoClos
                 if(al!=null)al.scene(scene);
                 if(paused!=wasPaused){if(al!=null){if(paused)al.pause();else al.resume();}else {if(paused)line.stop();else line.start();}wasPaused=paused;}
                 if(paused){Thread.sleep(10);continue;}
-                var p=queue.poll(10,TimeUnit.MILLISECONDS);if(p==null)continue;
-                while(!closed&&p.generation==generation&&!paused){
+                var p=queue.poll(10);if(p==null)continue;
+                while(!closed&&p.generation()==generation&&!paused){
                     long queued=al!=null?al.queuedMicros():(line.getBufferSize()-line.available())*1_000_000L/192000;
-                    long wait=p.pts-LibVlc.libvlc_clock()-queued;if(wait<=1000&&(al==null||al.ready()))break;Thread.sleep(2);
+                    long wait=p.pts()-LibVlc.libvlc_clock()-queued;if(wait<=1000&&(al==null||al.ready()))break;Thread.sleep(2);
                 }
-                if(closed||p.generation!=generation||paused)continue;
-                if(p.pts>0&&LibVlc.libvlc_clock()-p.pts>250_000){if(al!=null)al.flush();else line.flush();continue;}
-                if(al!=null)al.write(p.samples,scene);else {dsp.process(p.samples,gain,pan,occlusion);int offset=0;while(!closed&&p.generation==generation&&offset<p.samples.length)offset+=line.write(p.samples,offset,p.samples.length-offset);}
+                if(closed||p.generation()!=generation||paused)continue;
+                if(p.pts()>0&&LibVlc.libvlc_clock()-p.pts()>250_000){latePackets++;if(al!=null)al.flush();else line.flush();continue;}
+                writtenBytes+=p.samples().length;
+                if(al!=null)al.write(p.samples(),scene);else {dsp.process(p.samples(),gain,pan,occlusion);int offset=0;while(!closed&&p.generation()==generation&&offset<p.samples().length)offset+=line.write(p.samples(),offset,p.samples().length-offset);}
             }
         }catch(InterruptedException ignored){Thread.currentThread().interrupt();}
         catch(Exception|LinkageError ex){backend="Audio output failed";System.getLogger(getClass().getName()).log(System.Logger.Level.WARNING,backend,ex);}
