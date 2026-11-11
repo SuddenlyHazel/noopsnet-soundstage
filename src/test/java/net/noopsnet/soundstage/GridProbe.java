@@ -8,6 +8,11 @@ import java.util.Arrays;
 public final class GridProbe {
     private static void check(boolean ok) { if (!ok) throw new AssertionError(); }
     public static void main(String[] args) {
+        var slow=new LightSmoother();check(slow.advance(0,0,500)==0);
+        int previous=0;for(int i=0;i<180;i++){int current=slow.advance(0x050505,1000.0/60,500);check(current>=previous);previous=current;}check(previous==0x050505);
+        var lowFps=new LightSmoother();var highFps=new LightSmoother();lowFps.advance(0,0,500);highFps.advance(0,0,500);
+        int low=0,high=0;for(int i=0;i<30;i++)low=lowFps.advance(0xffa040,1000.0/30,500);for(int i=0;i<144;i++)high=highFps.advance(0xffa040,1000.0/144,500);check(low==high);
+        check(slow.advance(0x123456,0,0)==0x123456);check(slow.advance(0x123456,1000,500)==0x123456);
         var tracks=java.util.List.of(new PlaylistTrack("a","https://example.test/a",2),new PlaylistTrack("b","https://example.test/b",3));
         check(PlaylistTimeline.resolve(tracks,0,2500,false).equals(new PlaylistTimeline.Position(1,500,false)));
         check(PlaylistTimeline.resolve(tracks,1,3500,true).equals(new PlaylistTimeline.Position(0,500,false)));

@@ -29,7 +29,7 @@ public final class SoundstageClient {
     private static net.minecraft.client.multiplayer.ClientLevel level;
     private static int tick,personalVolume=100;
     static int smoothingMillis,brightness=100;
-    private static final Map<BlockPos,Integer> SMOOTHED=new HashMap<>();
+    private static final Map<BlockPos,LightSmoother> SMOOTHED=new HashMap<>();
     private static long lastLightFrame;
     private static List<StageEntity> active=List.of();
     private static long lastAfterlight;
@@ -116,9 +116,8 @@ public final class SoundstageClient {
                 int color=s!=null&&s.player!=null&&d.enabled?s.player.color(patch.getValue()):-1;
                 if(color<0)color=d.fallbackMode==1?0:d.fallbackMode==2?d.fallbackColor:-1;
                 if(color<0){SMOOTHED.remove(pos);continue;}
-                int previous=SMOOTHED.getOrDefault(pos,color);double alpha=smoothingMillis==0?1:Math.clamp(dt/(smoothingMillis+dt),0,1);int blended=0;
-                for(int shift:new int[]{16,8,0}){int from=(previous>>shift)&255,to=(color>>shift)&255;blended|=((int)Math.round(from+(to-from)*alpha))<<shift;}
-                SMOOTHED.put(pos,blended);color=0;for(int shift:new int[]{16,8,0})color|=(((blended>>shift)&255)*brightness/100)<<shift;
+                int blended=SMOOTHED.computeIfAbsent(pos,p->new LightSmoother()).advance(color,dt,smoothingMillis);
+                color=0;for(int shift:new int[]{16,8,0})color|=(((blended>>shift)&255)*brightness/100)<<shift;
                 var entity=level.getBlockEntity(pos);
                 if(entity instanceof StageEntity equipment){if(!d.id.equals(equipment.deskId))continue;COLORS.put(pos,color);applied.add(pos);}
                 else if(entity!=null){

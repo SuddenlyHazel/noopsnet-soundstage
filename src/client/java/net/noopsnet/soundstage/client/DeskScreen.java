@@ -61,7 +61,7 @@ final class DeskScreen extends Screen {
             button("Play selected",0,166,130,()->{capture();var d=draft;draft=settings(d.url(),d.volume(),d.range(),true,d.lighting(),d.address(),true,d.loopPlaylist(),d.spatial(),d.walls(),selected,d.fallbackMode(),d.fallbackColor(),d.group());save();});
             button("Previous",140,166,105,()->action("previous"));button("Next",255,166,105,()->action("next"));
         }else if(tab==2){
-            field("Address","Next RGB+dim address",""+s.address(),0,51,170,3);field("Group","New fixture group",s.group(),185,51,175,32);
+            field("Address","Next dimmer address",""+s.address(),0,51,170,3);field("Group","New fixture group",s.group(),185,51,175,32);
             button(s.lighting()?"Lighting: on":"Lighting: off",0,82,170,()->toggle(1));
             button("No signal: "+new String[]{"restore","black","color"}[s.fallbackMode()],185,82,175,()->toggle(6));
             field("Color","Fallback RGB hex",String.format("%06X",s.fallbackColor()),0,124,170,6);
@@ -71,7 +71,7 @@ final class DeskScreen extends Screen {
             var patches=initial.patches();patchIndex=Math.min(patchIndex,Math.max(0,patches.size()-1));
             button("Previous",0,38,85,()->{patchIndex=Math.floorMod(patchIndex-1,Math.max(1,patches.size()));rebuild();});button("Next",275,38,85,()->{patchIndex=(patchIndex+1)%Math.max(1,patches.size());rebuild();});
             labels.add("95:44:Fixture "+(patches.isEmpty()?0:patchIndex+1)+" / "+patches.size());
-            if(!patches.isEmpty()){var p=patches.get(patchIndex);labels.add("0:70:Block: "+p.pos().toShortString());field("Patch address","RGB+dim address",""+p.address(),0,100,170,3);field("Patch group","Group",p.group(),185,100,175,32);
+            if(!patches.isEmpty()){var p=patches.get(patchIndex);labels.add("0:70:Block: "+p.pos().toShortString());field("Patch address","Dimmer address",""+p.address(),0,100,170,3);field("Patch group","Group",p.group(),185,100,175,32);
                 button("Apply fixture",0,131,170,()->patch(false,false));button("Apply entire group",185,131,175,()->patch(true,false));button("Unlink fixture",0,159,170,()->patch(false,true));
             }else labels.add("0:87:Use the linking tool to connect stage / Afterlight lights.");
         }
