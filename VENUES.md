@@ -17,8 +17,8 @@ and changes the editing protocol; alpha.31 clients must update to join.
    the selected fixture with a sparkle for ten seconds. **Apply fixture** saves
    its name/address/group; **Apply entire group** sets one shared address and group.
 5. Set the stream in **Audio**, enable lighting, and play your performance.
-   The server music demo remains available; its original RGB cues are not a
-   bespoke moving-laser show. Use QLC+ faders to check each new fixture channel.
+   The server demo now exercises every new fixture type. Follow the exact
+   [showcase layout and channel patch](demo/SHOWCASE.md) before playing it.
 
 Speakers need no DMX patch: linking is their complete setup. Up to 32 can be
 linked; the closest eight loaded speakers contribute 3D sound. Without linked
