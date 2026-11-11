@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "noopsnet_soundstage:block/sound_desk",
+      "y": 0
+    },
+    "facing=east": {
+      "model": "noopsnet_soundstage:block/sound_desk",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "noopsnet_soundstage:block/sound_desk",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "noopsnet_soundstage:block/sound_desk",
+      "y": 270
+    }
+  }
+}

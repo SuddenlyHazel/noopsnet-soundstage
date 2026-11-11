@@ -1,0 +1,85 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+}
+version = '0.2.0-alpha.1'
+group = 'net.noopsnet'
+base { archivesName = 'noopsnet-soundstage' }
+java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
+repositories { mavenCentral(); maven { url = 'https://api.modrinth.com/maven' } }
+sourceSets { client; automation; gametest }
+sourceSets.gametest.compileClasspath += sourceSets.main.output
+sourceSets.gametest.runtimeClasspath += sourceSets.main.output
+configurations.gametestImplementation.extendsFrom configurations.implementation
+sourceSets.client.compileClasspath += sourceSets.main.output
+sourceSets.client.runtimeClasspath += sourceSets.main.output
+sourceSets.automation.compileClasspath += sourceSets.main.output + sourceSets.client.output
+sourceSets.automation.runtimeClasspath += sourceSets.main.output + sourceSets.client.output
+configurations.automationImplementation.extendsFrom configurations.clientImplementation
+configurations.clientImplementation.extendsFrom configurations.implementation
+dependencies { clientImplementation('maven.modrinth:watermedia:yezkkXsZ') { transitive = false } }
+neoForge {
+    enable { version = '21.1.265'; disableRecompilation = true }
+    addModdingDependenciesTo sourceSets.gametest
+    addModdingDependenciesTo sourceSets.client
+    addModdingDependenciesTo sourceSets.automation
+    mods { noopsnet_soundstage { sourceSet sourceSets.main; sourceSet sourceSets.client; sourceSet sourceSets.automation; sourceSet sourceSets.gametest } }
+    runs {
+        gameTestServer {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gametest
+            gameDirectory = file('run/gametest')
+            loadedMods = [mods.noopsnet_soundstage]
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'noopsnet_soundstage'
+        }
+        server { server(); programArgument '--nogui'; gameDirectory = file('run/server'); programArguments.addAll '--port', '0' }
+        client {
+            client()
+            sourceSet = sourceSets.automation
+            if (providers.gradleProperty('probeHeap').isPresent())
+                jvmArguments.add '-Xmx' + providers.gradleProperty('probeHeap').get()
+            gameDirectory = file('run/' + providers.gradleProperty('probeInstance').getOrElse('client'))
+            programArguments.addAll '--width', '1280', '--height', '720'
+            if (providers.gradleProperty('testWorld').isPresent())
+                programArguments.addAll '--quickPlaySingleplayer', providers.gradleProperty('testWorld').get()
+        }
+    }
+}
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version }
+}
+tasks.withType(JavaCompile).configureEach { options.release = 21; options.encoding = 'UTF-8' }
+tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+tasks.named('jar') { from sourceSets.client.output }
+tasks.named('sourcesJar') { from sourceSets.client.allSource }
+tasks.register('gridProbe', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.noopsnet.soundstage.GridProbe'
+}
+tasks.named('check') { dependsOn 'gridProbe', 'compileClientJava' }
+tasks.register('verifyModJar') {
+    dependsOn tasks.named('jar')
+    doLast {
+        new java.util.zip.ZipFile(tasks.jar.archiveFile.get().asFile).withCloseable { zip ->
+            ['net/noopsnet/soundstage/Soundstage.class', 'net/noopsnet/soundstage/client/SoundstageClient.class',
+             'assets/noopsnet_soundstage/blockstates/sound_desk.json', 'data/noopsnet_soundstage/recipe/stereo.json'].each {
+                if (zip.getEntry(it) == null) throw new GradleException("Missing release entry: ${it}")
+            }
+            if (zip.entries().toList().any { it.name.contains('/automation/') || it.name.contains('StageGameTests') })
+                throw new GradleException('Development fixture leaked into release')
+        }
+    }
+}
+tasks.named('check') { dependsOn 'verifyModJar' }
+tasks.named('runGameTestServer') { doFirst { delete file('run/gametest/logs/latest.log') } }
+tasks.register('verifyGameTests') {
+    dependsOn 'runGameTestServer'
+    doLast {
+        if (!file('run/gametest/logs/latest.log').text.contains('All 2 required tests passed'))
+            throw new GradleException('Soundstage GameTests did not pass')
+    }
+}
+
+tasks.named('jar') { from('LICENSE'); from('NOTICE.md') }

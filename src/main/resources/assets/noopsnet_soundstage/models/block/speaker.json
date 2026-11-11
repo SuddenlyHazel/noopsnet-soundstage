@@ -1,0 +1,112 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "case": "minecraft:block/black_concrete",
+    "metal": "minecraft:block/iron_block",
+    "speaker": "minecraft:block/note_block",
+    "panel": "minecraft:block/gray_concrete",
+    "lamp": "minecraft:block/white_concrete",
+    "cyan": "minecraft:block/cyan_concrete",
+    "red": "minecraft:block/redstone_block",
+    "gold": "minecraft:block/gold_block",
+    "particle": "minecraft:block/black_concrete"
+  },
+  "elements": [
+    {
+      "from": [
+        1,
+        0,
+        1
+      ],
+      "to": [
+        15,
+        16,
+        15
+      ],
+      "faces": {
+        "up": {
+          "texture": "#case"
+        },
+        "down": {
+          "texture": "#case"
+        },
+        "north": {
+          "texture": "#case"
+        },
+        "south": {
+          "texture": "#case"
+        },
+        "east": {
+          "texture": "#case"
+        },
+        "west": {
+          "texture": "#case"
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        1,
+        0
+      ],
+      "to": [
+        14,
+        8,
+        2
+      ],
+      "faces": {
+        "up": {
+          "texture": "#speaker"
+        },
+        "down": {
+          "texture": "#speaker"
+        },
+        "north": {
+          "texture": "#speaker"
+        },
+        "south": {
+          "texture": "#speaker"
+        },
+        "east": {
+          "texture": "#speaker"
+        },
+        "west": {
+          "texture": "#speaker"
+        }
+      }
+    },
+    {
+      "from": [
+        4,
+        10,
+        0
+      ],
+      "to": [
+        12,
+        15,
+        2
+      ],
+      "faces": {
+        "up": {
+          "texture": "#speaker"
+        },
+        "down": {
+          "texture": "#speaker"
+        },
+        "north": {
+          "texture": "#speaker"
+        },
+        "south": {
+          "texture": "#speaker"
+        },
+        "east": {
+          "texture": "#speaker"
+        },
+        "west": {
+          "texture": "#speaker"
+        }
+      }
+    }
+  ]
+}

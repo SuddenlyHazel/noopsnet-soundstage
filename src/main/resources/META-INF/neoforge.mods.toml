@@ -1,0 +1,29 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MPL-2.0 (code); see NOTICE.md for artwork"
+[[mods]]
+modId="noopsnet_soundstage"
+version="${version}"
+displayName="NoopsNet Soundstage"
+authors="NoopsNet"
+description="Placeable sound systems and streamed performance lighting."
+[[dependencies.noopsnet_soundstage]]
+modId="neoforge"
+type="required"
+versionRange="[21.1.265,21.2)"
+side="BOTH"
+[[dependencies.noopsnet_soundstage]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1]"
+side="BOTH"
+[[dependencies.noopsnet_soundstage]]
+modId="watermedia"
+type="required"
+versionRange="[2.1.36]"
+side="CLIENT"
+[[dependencies.noopsnet_soundstage]]
+modId="noopsnet_neon"
+type="optional"
+versionRange="[0.5.1,)"
+side="BOTH"
