@@ -33,8 +33,9 @@ public final class LinkTool extends Item {
         if(ev.isCanceled()||ev.getUseBlock()==net.neoforged.neoforge.common.util.TriState.FALSE)return InteractionResult.FAIL;
         if(target instanceof StageEntity equipment&&!equipment.isSource()){
             if(!equipment.canEdit(p))return message(p,"You cannot link equipment owned by another player.");
+            if(!p.isShiftKeyDown()&&!FixtureProfile.at(level,pos).fits(desk.address))return message(p,"Not enough channels at this address. Use Auto patch in the desk.");
             if(equipment.deskId!=null&&!equipment.deskId.equals(desk.id))return message(p,"Unlink this equipment from its current system first.");
-            if(p.isShiftKeyDown()){desk.speakers.remove(pos);desk.lights.remove(pos);desk.groups.remove(pos);equipment.desk=null;equipment.deskId=null;}
+            if(p.isShiftKeyDown()){desk.speakers.remove(pos);desk.lights.remove(pos);desk.groups.remove(pos);desk.names.remove(pos);equipment.desk=null;equipment.deskId=null;}
             else {
                 var kind=((StageBlock)equipment.getBlockState().getBlock()).kind;
                 if(kind==StageBlock.Kind.SPEAKER){if(desk.speakers.size()>=32&&!desk.speakers.contains(pos))return message(p,"Speaker limit reached (32).");desk.speakers.add(pos.immutable());}
@@ -43,7 +44,7 @@ public final class LinkTool extends Item {
             }
             equipment.changed();
         }else if(target!=null&&BuiltInRegistries.BLOCK.getKey(target.getBlockState().getBlock()).getNamespace().equals("noopsnet_neon")){
-            if(p.isShiftKeyDown()){desk.lights.remove(pos);desk.groups.remove(pos);}
+            if(p.isShiftKeyDown()){desk.lights.remove(pos);desk.groups.remove(pos);desk.names.remove(pos);}
             else {if(desk.lights.size()>=64&&!desk.lights.containsKey(pos))return message(p,"Light limit reached (64).");desk.lights.put(pos.immutable(),desk.address);desk.groups.put(pos.immutable(),desk.group);}
         }else return message(p,"Link speakers, stage lights or Afterlight fixtures.");
         desk.changed();return message(p,p.isShiftKeyDown()?"Equipment unlinked.":"Equipment linked. Light address: "+desk.address);

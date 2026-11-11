@@ -50,4 +50,27 @@ public class StageGameTests {
         Soundstage.LINK.get().useOn(new net.minecraft.world.item.context.UseOnContext(owner,net.minecraft.world.InteractionHand.MAIN_HAND,hit));
         h.assertTrue(source.speakers.isEmpty()&&speaker.deskId==null,"Sneak use unlinks speaker");h.succeed();
     }
+    @GameTest(template="empty",timeoutTicks=100)
+    public static void venuePatchAndExport(GameTestHelper h){
+        var level=h.getLevel();var pos=h.absolutePos(new BlockPos(2,1,2));
+        level.setBlockAndUpdate(pos,Soundstage.DESK.get().defaultBlockState());var d=(StageEntity)level.getBlockEntity(pos);
+        var owner=new FakePlayer(level,new GameProfile(UUID.randomUUID(),"VenueOwner"));d.owner=owner.getUUID();owner.setPos(pos.getX(),pos.getY(),pos.getZ());
+        var fixtures=java.util.List.of(Soundstage.LAMP.get(),Soundstage.LASER.get(),Soundstage.FOG.get(),Soundstage.PARTICLE.get());
+        for(int i=0;i<fixtures.size();i++){var p=pos.offset(i,0,1);level.setBlockAndUpdate(p,fixtures.get(i).defaultBlockState());d.lights.put(p,1);d.groups.put(p,"Main");}
+        h.assertTrue(VenueTools.action(owner,d,"autopatch"),"Automatic patch succeeds");
+        h.assertTrue(new java.util.ArrayList<>(d.lights.values()).equals(java.util.List.of(1,5,11,13)),"Mixed fixture footprints do not overlap");
+        var before=new java.util.LinkedHashMap<>(d.lights);d.address=509;
+        h.assertTrue(!VenueTools.action(owner,d,"strip_x")&&d.lights.equals(before),"Overflow is atomic");d.address=1;
+        h.assertTrue(VenueTools.action(owner,d,"reverse")&&d.lights.get(pos.offset(3,0,1))==1,"Reversed pixel order persists in addresses");
+        d.names.put(pos.offset(1,0,1),"Laser <left> & \"A\"");
+        var b=new net.minecraft.network.RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(),level.registryAccess());
+        var snapshot=StageNetwork.snapshot(d);try{StageNetwork.Open.CODEC.encode(b,snapshot);h.assertTrue(StageNetwork.Open.CODEC.decode(b).equals(snapshot),"Named fixture profiles roundtrip");}finally{b.release();}
+        var copy=new StageEntity(pos,d.getBlockState());copy.loadWithComponents(d.saveWithFullMetadata(level.registryAccess()),level.registryAccess());h.assertTrue(copy.names.equals(d.names)&&copy.lights.equals(d.lights),"Assembly names/order persist");
+        try{ShowExport.write(java.nio.file.Path.of("../../build/test-venue-export"),snapshot.patches());var files=ShowExport.files(snapshot.patches());
+            var factory=javax.xml.parsers.DocumentBuilderFactory.newInstance();factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd",false);
+            for(var e:files.entrySet())if(e.getKey().endsWith(".qxf")||e.getKey().endsWith(".qxw"))factory.newDocumentBuilder().parse(new java.io.ByteArrayInputStream(e.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            h.assertTrue(files.get("venue.qxw").contains("&lt;left&gt; &amp; &quot;A&quot;"),"Export escapes fixture names");
+        }catch(Exception e){throw new RuntimeException(e);}
+        h.succeed();
+    }
 }

@@ -19,6 +19,7 @@ final class DeskScreen extends Screen {
     private int tab,selected,patchIndex,x,y;
     private String error="";
     DeskScreen(StageNetwork.Open p){super(Component.literal("Soundstage"));initial=p;draft=p.settings();tracks=new ArrayList<>(draft.playlist());}
+    DeskScreen(StageNetwork.Open p,DeskScreen old){this(p);tab=old.tab;patchIndex=old.patchIndex;}
     private void button(String title,int dx,int dy,int w,Runnable action){addRenderableWidget(Button.builder(Component.literal(title),b->{try{action.run();}catch(IllegalArgumentException e){error=e.getMessage()==null?"Check the entered values.":e.getMessage();}}).bounds(x+dx,y+dy,w,20).build());}
     private void field(String key,String label,String value,int dx,int dy,int w,int max){
         var f=new EditBox(font,x+dx,y+dy,w,20,Component.literal(label));f.setMaxLength(max);f.setValue(value);fields.put(key,f);addRenderableWidget(f);labels.add(dx+":"+(dy-11)+":"+label);
@@ -37,12 +38,12 @@ final class DeskScreen extends Screen {
     private void rebuild(){fields.clear();labels.clear();clearWidgets();init();}
     @Override protected void init(){
         x=width/2-180;y=height/2-112;fields.clear();labels.clear();var s=draft;
-        String[] tabs={"Audio","Playlist","Lighting","Patches"};for(int i=0;i<4;i++){final int t=i;button(tabs[i],i*91,8,87,()->{capture();tab=t;rebuild();});}
+        String[] tabs={"Audio","Playlist","Lighting","Patches","Venue"};for(int i=0;i<5;i++){final int t=i;button(tabs[i],i*73,8,69,()->{capture();tab=t;rebuild();});}
         if(tab==0){
             field("URL","Live stream URL (approved host)",s.url(),0,48,360,2048);
             field("Volume","Volume %",""+s.volume(),0,86,110,3);field("Range","Range (blocks)",""+s.range(),125,86,110,2);
             button(s.enabled()?"Playing":"Stopped",250,86,110,()->toggle(0));
-            button(s.playlistMode()?"Mode: playlist":"Mode: live",0,115,175,()->toggle(2));button(s.spatial()?"Spatial pan: on":"Spatial pan: off",185,115,175,()->toggle(4));
+            button(s.playlistMode()?"Mode: playlist":"Mode: live",0,115,175,()->toggle(2));button(s.spatial()?"3D audio: on":"3D audio: off",185,115,175,()->toggle(4));
             button(s.walls()?"Wall muffling: on":"Wall muffling: off",0,141,175,()->toggle(5));button("Play server demo",185,141,175,()->action("demo"));
             labels.add("0:170:"+SoundstageClient.status(initial.pos()));
         }else if(tab==1){
@@ -67,21 +68,37 @@ final class DeskScreen extends Screen {
             field("Color","Fallback RGB hex",String.format("%06X",s.fallbackColor()),0,124,170,6);
             labels.add("0:155:Your listener controls: /soundstagebrightness 0..100");
             labels.add("0:170:/soundstagesmoothing 0..2000 (milliseconds)");
+        }else if(tab==4){
+            field("Venue group","Assembly / group to arrange",s.group(),0,48,175,32);
+            field("Venue address","Starting DMX address",""+s.address(),185,48,175,3);
+            button("Auto patch ALL",0,77,175,()->venue("autopatch"));button("Collect connected blocks",185,77,175,()->venue("collect"));
+            button("Pixels along X",0,104,115,()->venue("strip_x"));button("Pixels along Y",122,104,115,()->venue("strip_y"));button("Pixels along Z",245,104,115,()->venue("strip_z"));
+            button("Reverse group order",0,131,175,()->venue("reverse"));button("Group shares one cue",185,131,175,()->venue("uniform"));
+            button("Export QLC+ show patch",0,158,360,()->{
+                try{var dir=net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().resolve("soundstage-exports").resolve("venue-"+System.currentTimeMillis());ShowExport.write(dir,initial.patches());
+                if(minecraft.player!=null)minecraft.player.displayClientMessage(Component.literal("Show patch exported: "+dir),false);error="Exported to soundstage-exports in your game folder.";}
+                catch(java.io.IOException ex){throw new IllegalArgumentException("Export failed: "+ex.getMessage());}
+            });
         }else{
             var patches=initial.patches();patchIndex=Math.min(patchIndex,Math.max(0,patches.size()-1));
             button("Previous",0,38,85,()->{patchIndex=Math.floorMod(patchIndex-1,Math.max(1,patches.size()));rebuild();});button("Next",275,38,85,()->{patchIndex=(patchIndex+1)%Math.max(1,patches.size());rebuild();});
             labels.add("95:44:Fixture "+(patches.isEmpty()?0:patchIndex+1)+" / "+patches.size());
-            if(!patches.isEmpty()){var p=patches.get(patchIndex);labels.add("0:70:Block: "+p.pos().toShortString());field("Patch address","Dimmer address",""+p.address(),0,100,170,3);field("Patch group","Group",p.group(),185,100,175,32);
-                button("Apply fixture",0,131,170,()->patch(false,false));button("Apply entire group",185,131,175,()->patch(true,false));button("Unlink fixture",0,159,170,()->patch(false,true));
+            if(!patches.isEmpty()){var p=patches.get(patchIndex);labels.add("0:70:"+p.profile().title+" @ "+p.pos().toShortString());field("Patch address","Dimmer address",""+p.address(),0,100,170,3);field("Patch group","Group",p.group(),185,100,175,32);
+                button("Apply fixture",0,131,170,()->patch(false,false));button("Apply entire group",185,131,175,()->patch(true,false));button("Unlink",0,159,80,()->patch(false,true));button("Identify",90,159,80,()->PerformanceEffects.identify(p.pos()));
+                field("Name","Fixture name",p.name(),185,159,175,48);
             }else labels.add("0:87:Use the linking tool to connect stage / Afterlight lights.");
         }
         button("Save",0,205,175,this::save);button("Cancel",185,205,175,this::onClose);
+    }
+    private void venue(String action){
+        var s=draft;String group=value("Venue group");if(group.isBlank())throw new IllegalArgumentException("Choose a group name.");
+        draft=settings(s.url(),s.volume(),s.range(),s.enabled(),s.lighting(),number("Venue address",1,509),s.playlistMode(),s.loopPlaylist(),s.spatial(),s.walls(),s.trackIndex(),s.fallbackMode(),s.fallbackColor(),group);action(action);
     }
     private PlaylistTrack track(){if(value("Title").isBlank()||value("Track URL").isBlank())throw new IllegalArgumentException("Enter a title and direct audio URL.");return new PlaylistTrack(value("Title"),value("Track URL"),number("Seconds",1,86400));}
     private void send(){capture();PacketDistributor.sendToServer(new StageNetwork.Save(initial.pos(),draft));}
     private void save(){send();onClose();}
     private void action(String action){send();PacketDistributor.sendToServer(new StageNetwork.Action(initial.pos(),action));}
-    private void patch(boolean group,boolean remove){String name=value("Patch group");if(name.isBlank())throw new IllegalArgumentException("Give the group a name.");var p=new StageNetwork.Patch(initial.patches().get(patchIndex).pos(),number("Patch address",1,509),name);send();PacketDistributor.sendToServer(new StageNetwork.EditPatch(initial.pos(),p,group,remove));}
+    private void patch(boolean group,boolean remove){String name=value("Patch group");if(name.isBlank())throw new IllegalArgumentException("Give the group a name.");var old=initial.patches().get(patchIndex);var p=new StageNetwork.Patch(old.pos(),number("Patch address",1,509),name,value("Name"),old.profile());send();PacketDistributor.sendToServer(new StageNetwork.EditPatch(initial.pos(),p,group,remove));}
     @Override public void render(GuiGraphics g,int mx,int my,float partial){renderBackground(g,mx,my,partial);g.fill(x-10,y-14,x+370,y+233,0xee151b24);super.render(g,mx,my,partial);g.drawString(font,title,x,y-7,0x65e4dc);for(String line:labels){var parts=line.split(":",3);g.drawString(font,parts[2],x+Integer.parseInt(parts[0]),y+Integer.parseInt(parts[1]),0xcccccc);}if(!error.isEmpty())g.drawString(font,error,x,y+191,0xff7777);}
     @Override public boolean isPauseScreen(){return false;}
 }

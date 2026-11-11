@@ -1,0 +1,1 @@
+{"variants": {"facing=north": {"model": "noopsnet_soundstage:block/laser", "y": 0}, "facing=east": {"model": "noopsnet_soundstage:block/laser", "y": 90}, "facing=south": {"model": "noopsnet_soundstage:block/laser", "y": 180}, "facing=west": {"model": "noopsnet_soundstage:block/laser", "y": 270}}}

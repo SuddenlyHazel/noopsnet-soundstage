@@ -3,5 +3,8 @@
   "block.noopsnet_soundstage.sound_desk": "Sound Desk",
   "block.noopsnet_soundstage.speaker": "Speaker",
   "block.noopsnet_soundstage.stage_light": "Stage Light",
-  "item.noopsnet_soundstage.linking_tool": "Soundstage Linking Tool"
+  "item.noopsnet_soundstage.linking_tool": "Soundstage Linking Tool",
+  "block.noopsnet_soundstage.laser": "RGB Laser",
+  "block.noopsnet_soundstage.fog_machine": "Fog Machine",
+  "block.noopsnet_soundstage.particle_machine": "Particle Machine"
 }

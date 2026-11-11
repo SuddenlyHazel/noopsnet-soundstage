@@ -21,10 +21,12 @@ final class VenuePlayer extends BasePlayer implements RenderCallback,BufferForma
         if(raw()!=null){
             raw().mediaPlayer().videoSurface().getVideoSurface().setSemaphore(lock);
             try{output=new SpatialAudio();raw().mediaPlayer().audio().callback("S16N",48000,2,output);}
-            catch(javax.sound.sampled.LineUnavailableException|IllegalArgumentException ex){System.getLogger(VenuePlayer.class.getName()).log(System.Logger.Level.WARNING,"Spatial PCM unavailable; using native stereo",ex);}
+            catch(IllegalArgumentException ex){System.getLogger(VenuePlayer.class.getName()).log(System.Logger.Level.WARNING,"Spatial PCM unavailable; using native stereo",ex);}
         }
         audio=output;
     }
+    String audioBackend(){return audio==null?"Native stereo":audio.backend;}
+    void scene(OpenAlOutput.Scene scene){if(audio!=null)audio.scene(scene);}
     boolean spatialReady(){return audio!=null;}
     void spatial(double gain,double pan,double occlusion){if(audio!=null)audio.position(gain,pan,occlusion);else super.setVolume((int)(gain*100*(1-.65*occlusion)));}
     @Override public void setVolume(int volume){if(audio!=null)audio.position(volume/100.0,0,0);else super.setVolume(volume);}
@@ -37,6 +39,7 @@ final class VenuePlayer extends BasePlayer implements RenderCallback,BufferForma
         try{var b=buffers[0].duplicate();b.clear();int[] values=new int[512];for(int i=0;i<512;i++)values[i]=VrslGrid.read(b,f.getWidth(),f.getHeight(),i,VrslGrid.Layout.HORIZONTAL_TOP,VrslGrid.Transfer.IDENTITY);frame=new Frame(System.nanoTime(),values);}
         finally{lock.release();}
     }
+    int[] channels(){var f=frame;return f==null||System.nanoTime()-f.nanos>1_000_000_000L?null:f.channels;}
     int color(int address){var f=frame;if(f==null||System.nanoTime()-f.nanos>1_000_000_000L)return -1;int i=address-1;int[] v=f.channels;return (v[i+1]*v[i]/255)<<16|(v[i+2]*v[i]/255)<<8|v[i+3]*v[i]/255;}
     @Override public void release(){closed=true;frame=null;if(audio!=null)audio.close();super.release();}
 }

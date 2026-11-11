@@ -26,3 +26,7 @@ This repository starts with a reviewed source snapshot. It intentionally contain
 Use the sound desk tabs for Audio, Playlist, Lighting and Patches. A linking tool connects the desk to speakers, stage lights and Afterlight fixtures. Live shows use OBS + HNode with an ordinary RTMP/MediaMTX relay; set a trusted public HTTP(S) playback host in the server config. Playlists need direct seekable audio URLs and accurate lengths in seconds.
 
 This is an alpha; live multiplayer testing and cross-platform playback remain hands-on follow-up.
+
+## Venue release 0.3.0-alpha.1
+
+See [venue setup, fixture channels and QLC+ export](VENUES.md).

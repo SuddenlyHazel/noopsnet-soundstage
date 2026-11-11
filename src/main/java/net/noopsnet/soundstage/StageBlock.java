@@ -18,7 +18,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public final class StageBlock extends net.minecraft.world.level.block.HorizontalDirectionalBlock implements EntityBlock {
-    public enum Kind {STEREO,DESK,SPEAKER,LIGHT}
+    public enum Kind {STEREO,DESK,SPEAKER,LIGHT,LASER,FOG,PARTICLE}
     public final Kind kind;
     public StageBlock(Kind kind,Properties properties){super(properties);this.kind=kind;registerDefaultState(stateDefinition.any().setValue(FACING,net.minecraft.core.Direction.NORTH));}
     @Override protected MapCodec<? extends net.minecraft.world.level.block.HorizontalDirectionalBlock> codec(){return simpleCodec(p->new StageBlock(kind,p));}

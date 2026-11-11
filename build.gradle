@@ -2,7 +2,7 @@ plugins {
     id 'java-library'
     id 'net.neoforged.moddev' version '2.0.148'
 }
-version = '0.2.0-alpha.2'
+version = '0.3.0-alpha.1'
 group = 'net.noopsnet'
 base { archivesName = 'noopsnet-soundstage' }
 java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
@@ -77,7 +77,7 @@ tasks.named('runGameTestServer') { doFirst { delete file('run/gametest/logs/late
 tasks.register('verifyGameTests') {
     dependsOn 'runGameTestServer'
     doLast {
-        if (!file('run/gametest/logs/latest.log').text.contains('All 2 required tests passed'))
+        if (!file('run/gametest/logs/latest.log').text.contains('All 3 required tests passed'))
             throw new GradleException('Soundstage GameTests did not pass')
     }
 }

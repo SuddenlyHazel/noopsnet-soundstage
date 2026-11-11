@@ -1,61 +1,58 @@
 // SPDX-License-Identifier: MPL-2.0
 package net.noopsnet.soundstage.client;
 
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.concurrent.*;
 import javax.sound.sampled.*;
 import org.watermedia.videolan4j.player.base.callback.DefaultAudioCallbackAdapter;
 import org.watermedia.videolan4j.player.base.MediaPlayer;
 import org.watermedia.videolan4j.binding.lib.LibVlc;
 import net.noopsnet.soundstage.AudioSpatializer;
 
-/** VLC remains the decoder/clock; Java Sound presents a bounded queue of spatialized PCM. */
+/** VLC owns presentation time; OpenAL owns spatial rendering, with Java Sound fallback. */
 final class SpatialAudio extends DefaultAudioCallbackAdapter implements AutoCloseable {
     private record Packet(byte[] samples,long pts,int generation){}
-    private final ArrayBlockingQueue<Packet> queue=new ArrayBlockingQueue<>(128);
-    private final SourceDataLine line;
-    private final AudioSpatializer dsp=new AudioSpatializer();
-    private final Thread worker;
-    private volatile boolean closed,paused;
-    private volatile int generation;
+    private final ArrayBlockingQueue<Packet> queue=new ArrayBlockingQueue<>(32);
+    private final Thread worker;private volatile boolean closed,paused;private volatile int generation;
     private volatile double gain,pan,occlusion;
-    SpatialAudio() throws LineUnavailableException {
-        super(4);
-        var format=new AudioFormat(48000,16,2,true,false);
-        line=AudioSystem.getSourceDataLine(format);line.open(format,8192);line.start();
-        worker=new Thread(this::run,"Soundstage spatial PCM");worker.setDaemon(true);worker.start();
-    }
+    private volatile OpenAlOutput.Scene scene=new OpenAlOutput.Scene(false,List.of(new OpenAlOutput.Emitter(0,0,-1,0,0)));
+    volatile String backend="Starting audio";
+    SpatialAudio(){super(4);worker=new Thread(this::run,"Soundstage spatial PCM");worker.setDaemon(true);worker.start();}
     void position(double volume,double balance,double obstruction){gain=volume;pan=balance;occlusion=obstruction;}
+    void scene(OpenAlOutput.Scene s){scene=s;}
     @Override protected void onPlay(MediaPlayer player,byte[] samples,int count,long pts){
         if(closed||samples.length>192000)return;
-        var packet=new Packet(samples,pts,generation);
-        if(!queue.offer(packet)){queue.poll();queue.offer(packet);}
+        for(int offset=0;offset<samples.length;offset+=3840){int end=Math.min(offset+3840,samples.length);end-=end%4;if(end<=offset)break;var packet=new Packet(java.util.Arrays.copyOfRange(samples,offset,end),pts+offset*1_000_000L/192000,generation);if(!queue.offer(packet)){queue.poll();queue.offer(packet);}}
     }
     private void run(){
-        int dspGeneration=-1;
+        OpenAlOutput al=null;SourceDataLine line=null;var dsp=new AudioSpatializer();int current=-1;boolean wasPaused=false;
         try{
+            try{al=new OpenAlOutput();backend=al.description;}catch(RuntimeException|LinkageError ex){
+                backend="Java Sound fallback";var format=new AudioFormat(48000,16,2,true,false);line=AudioSystem.getSourceDataLine(format);line.open(format,8192);line.start();
+                System.getLogger(getClass().getName()).log(System.Logger.Level.WARNING,"OpenAL unavailable; using stereo fallback",ex);
+            }
             while(!closed){
-                var packet=queue.poll(100,TimeUnit.MILLISECONDS);if(packet==null)continue;
-                while(!closed&&packet.generation==generation){
-                    long queuedMicros=(line.getBufferSize()-line.available())*1_000_000L/192000;
-                    long wait=packet.pts-LibVlc.libvlc_clock()-queuedMicros;
-                    if(!paused&&wait<=1000)break;
-                    Thread.sleep(paused?10:Math.min(10,Math.max(1,wait/1000)));
+                if(current!=generation){current=generation;dsp.reset();if(al!=null)al.flush();else line.flush();}
+                if(al!=null)al.scene(scene);
+                if(paused!=wasPaused){if(al!=null){if(paused)al.pause();else al.resume();}else {if(paused)line.stop();else line.start();}wasPaused=paused;}
+                if(paused){Thread.sleep(10);continue;}
+                var p=queue.poll(10,TimeUnit.MILLISECONDS);if(p==null)continue;
+                while(!closed&&p.generation==generation&&!paused){
+                    long queued=al!=null?al.queuedMicros():(line.getBufferSize()-line.available())*1_000_000L/192000;
+                    long wait=p.pts-LibVlc.libvlc_clock()-queued;if(wait<=1000&&(al==null||al.ready()))break;Thread.sleep(2);
                 }
-                if(closed||packet.generation!=generation)continue;
-                if(packet.pts>0&&LibVlc.libvlc_clock()-packet.pts>250_000){line.flush();continue;}
-                if(dspGeneration!=packet.generation){dsp.reset();dspGeneration=packet.generation;}
-                dsp.process(packet.samples,gain,pan,occlusion);
-                int offset=0;while(!closed&&packet.generation==generation&&offset<packet.samples.length)offset+=line.write(packet.samples,offset,packet.samples.length-offset);
+                if(closed||p.generation!=generation||paused)continue;
+                if(p.pts>0&&LibVlc.libvlc_clock()-p.pts>250_000){if(al!=null)al.flush();else line.flush();continue;}
+                if(al!=null)al.write(p.samples,scene);else {dsp.process(p.samples,gain,pan,occlusion);int offset=0;while(!closed&&p.generation==generation&&offset<p.samples.length)offset+=line.write(p.samples,offset,p.samples.length-offset);}
             }
         }catch(InterruptedException ignored){Thread.currentThread().interrupt();}
-        catch(RuntimeException ex){System.getLogger(SpatialAudio.class.getName()).log(System.Logger.Level.WARNING,"Spatial audio output stopped",ex);}
-        finally{line.stop();line.close();}
+        catch(Exception|LinkageError ex){backend="Audio output failed";System.getLogger(getClass().getName()).log(System.Logger.Level.WARNING,backend,ex);}
+        finally{if(al!=null)al.close();if(line!=null){line.stop();line.close();}}
     }
-    @Override public void pause(MediaPlayer p,long pts){paused=true;line.stop();}
-    @Override public void resume(MediaPlayer p,long pts){paused=false;line.start();}
-    @Override public void flush(MediaPlayer p,long pts){generation++;queue.clear();line.flush();}
-    @Override public void drain(MediaPlayer p){/* Output worker drains already queued packets. */}
-    @Override public void setVolume(float volume,boolean mute){/* Venue/listener controls are applied by position(). */}
-    @Override public void close(){closed=true;generation++;queue.clear();line.stop();line.flush();line.close();worker.interrupt();}
+    @Override public void pause(MediaPlayer p,long pts){paused=true;}
+    @Override public void resume(MediaPlayer p,long pts){paused=false;}
+    @Override public void flush(MediaPlayer p,long pts){generation++;queue.clear();}
+    @Override public void drain(MediaPlayer p){}
+    @Override public void setVolume(float volume,boolean mute){}
+    @Override public void close(){closed=true;generation++;queue.clear();worker.interrupt();}
 }

@@ -41,7 +41,7 @@ public final class SoundstageClient {
     }
     public SoundstageClient(IEventBus bus){
         loadPrefs();StageEntity.clientLoaded=LOADED::add;
-        StageNetwork.openClient=p->Minecraft.getInstance().setScreen(new DeskScreen(p));
+        StageNetwork.openClient=p->{var mc=Minecraft.getInstance();mc.setScreen(mc.screen instanceof DeskScreen old?new DeskScreen(p,old):new DeskScreen(p));};
         NeoForge.EVENT_BUS.addListener(SoundstageClient::tick);
         NeoForge.EVENT_BUS.addListener(SoundstageClient::render);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut e)->clear());
@@ -67,6 +67,8 @@ public final class SoundstageClient {
         var mc=Minecraft.getInstance();if(level!=mc.level){var pending=LOADED.stream().filter(e->e.getLevel()==mc.level).toList();clear();level=mc.level;LOADED.addAll(pending);}
         if(level==null||mc.player==null)return;
         LOADED.removeIf(e->e.isRemoved()||e.getLevel()!=level);
+        PerformanceEffects.particles();
+        for(var d:active){var session=SESSIONS.get(d.id);if(session!=null&&session.player!=null)session.player.scene(audioScene(d,mc.player.getEyePosition()));}
         if(++tick%5!=0)return;
         var listener=mc.player.getEyePosition();long now=System.nanoTime();
         var selected=LOADED.stream().filter(e->e.isSource()&&e.enabled&&!e.effectiveUrl().isBlank()&&proximity(e,listener)<e.range+4)
@@ -85,7 +87,7 @@ public final class SoundstageClient {
             if(s.player!=null){
                 s.status=s.player.getStateName();
                 int v=mute?0:(int)Math.round(d.volume*personalVolume/100.0*StreamPolicy.gain(distance(d,listener),d.range));var acoustic=acoustics(d,listener,mc.player.getYRot());
-                s.player.spatial(v/100.0,d.spatial?acoustic[0]:0,d.walls?acoustic[1]:0);
+                s.player.spatial(v/100.0,d.spatial?acoustic[0]:0,d.walls?acoustic[1]:0);s.player.scene(audioScene(d,listener));
                 if(d.playlistMode&&s.player.isPlaying()&&now-s.started>500_000_000L&&now-s.lastSeek>5_000_000_000L){
                     long desired=d.desiredMillis();if(Math.abs(s.player.getTime()-desired)>1000){s.player.seekTo(desired);s.lastSeek=now;}
                 }
@@ -94,6 +96,20 @@ public final class SoundstageClient {
             }
         }
         active=selected;
+    }
+    private static OpenAlOutput.Scene audioScene(StageEntity d,Vec3 listener){
+        var mc=Minecraft.getInstance();double master=mute?0:d.volume*personalVolume/10000.0;
+        var points=d.speakers.stream().filter(p->level.hasChunkAt(p)&&level.getBlockEntity(p) instanceof StageEntity e&&d.id.equals(e.deskId)).sorted(Comparator.comparingDouble(p->Vec3.atCenterOf(p).distanceToSqr(listener))).limit(8).toList();
+        if(points.isEmpty())points=List.of(d.getBlockPos());
+        var forward=mc.player.getLookAngle();double yaw=Math.toRadians(mc.player.getYRot());var right=new Vec3(-Math.cos(yaw),0,-Math.sin(yaw));var up=right.cross(forward).normalize();
+        var emitters=new ArrayList<OpenAlOutput.Emitter>();double total=0;
+        for(var p:points){double g=StreamPolicy.gain(Vec3.atCenterOf(p).distanceTo(listener),d.range);total+=g;}
+        for(var p:points){var v=Vec3.atCenterOf(p).subtract(listener);double g=StreamPolicy.gain(v.length(),d.range);float blocked=0;
+            if(d.walls){int hits=0;for(double offset:new double[]{-.25,0,.25}){var hit=level.clip(new net.minecraft.world.level.ClipContext(listener,Vec3.atCenterOf(p).add(offset,.15,0),net.minecraft.world.level.ClipContext.Block.COLLIDER,net.minecraft.world.level.ClipContext.Fluid.NONE,mc.player));if(hit.getType()!=HitResult.Type.MISS&&!hit.getBlockPos().equals(p))hits++;}blocked=hits/3f;}
+            emitters.add(new OpenAlOutput.Emitter((float)v.dot(right),(float)v.dot(up),(float)-v.dot(forward),(float)(master*g/Math.max(1,total)),blocked));
+        }
+        if(!d.spatial){var a=acoustics(d,listener,mc.player.getYRot());return new OpenAlOutput.Scene(false,List.of(new OpenAlOutput.Emitter(0,0,-1,(float)(master*StreamPolicy.gain(distance(d,listener),d.range)),d.walls?(float)a[1]:0)));}
+        return new OpenAlOutput.Scene(true,emitters);
     }
     private static double[] acoustics(StageEntity d,Vec3 listener,float yaw){
         var points=new ArrayList<BlockPos>();points.add(d.getBlockPos());
@@ -106,13 +122,19 @@ public final class SoundstageClient {
         return weight==0?new double[]{0,0}:new double[]{pan/weight,blocked/weight};
     }
     private static void updateLights(List<StageEntity> selected){
-        COLORS.clear();var applied=new HashSet<BlockPos>();
+        COLORS.clear();PerformanceEffects.cues.clear();var applied=new HashSet<BlockPos>();
         long now=System.nanoTime();double dt=lastLightFrame==0?16:(now-lastLightFrame)/1_000_000.0;lastLightFrame=now;
         boolean updateAfterlight=System.nanoTime()-lastAfterlight>100_000_000L;
         if(updateAfterlight)lastAfterlight=System.nanoTime();
         if(lights)for(var d:selected){var s=SESSIONS.get(d.id);if(!d.lighting)continue;
             for(var patch:d.lights.entrySet()){
                 var pos=patch.getKey();if(!level.hasChunkAt(pos)||applied.contains(pos))continue;
+                var profile=FixtureProfile.at(level,pos);
+                if(profile!=FixtureProfile.RGB){
+                    if(!(level.getBlockEntity(pos) instanceof StageEntity equipment)||!d.id.equals(equipment.deskId))continue;
+                    var values=s!=null&&s.player!=null&&d.enabled?s.player.channels():null;
+                    if(values!=null&&profile.fits(patch.getValue())){PerformanceEffects.cues.put(pos,new PerformanceEffects.Cue(profile,values,patch.getValue()));applied.add(pos);}continue;
+                }
                 int color=s!=null&&s.player!=null&&d.enabled?s.player.color(patch.getValue()):-1;
                 if(color<0)color=d.fallbackMode==1?0:d.fallbackMode==2?d.fallbackColor:-1;
                 if(color<0){SMOOTHED.remove(pos);continue;}
@@ -135,13 +157,13 @@ public final class SoundstageClient {
         if(method.isEmpty())return false;
         try{method.get().invoke(e,color);return true;}catch(ReflectiveOperationException ex){return false;}
     }
-    private static void restoreLights(){OVERRIDDEN.values().forEach(e->applyAfterlight(e,null));OVERRIDDEN.clear();COLORS.clear();SMOOTHED.clear();}
-    static String status(BlockPos p){if(level==null||!(level.getBlockEntity(p) instanceof StageEntity d))return "Unavailable";var s=SESSIONS.get(d.id);return s==null?(d.enabled?"Outside playback range":"Stopped"):s.status;}
+    private static void restoreLights(){OVERRIDDEN.values().forEach(e->applyAfterlight(e,null));OVERRIDDEN.clear();COLORS.clear();SMOOTHED.clear();PerformanceEffects.cues.clear();}
+    static String status(BlockPos p){if(level==null||!(level.getBlockEntity(p) instanceof StageEntity d))return "Unavailable";var s=SESSIONS.get(d.id);return s==null?(d.enabled?"Outside playback range":"Stopped"):s.status+" / "+(s.player==null?"":s.player.audioBackend());}
     private static void render(RenderLevelStageEvent e){
         if(e.getStage()!=RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS)return;
         var mc=Minecraft.getInstance();if(level==null||mc.player==null)return;
         var fixtures=LOADED.stream().filter(d->d.isSource()&&proximity(d,mc.player.getEyePosition())<d.range+4).sorted(Comparator.<StageEntity>comparingDouble(d->proximity(d,mc.player.getEyePosition())).thenComparingLong(d->d.getBlockPos().asLong())).limit(4).toList();
-        updateLights(fixtures);if(COLORS.isEmpty())return;
+        updateLights(fixtures);PerformanceEffects.render(e);if(COLORS.isEmpty())return;
         var buffers=Minecraft.getInstance().renderBuffers().bufferSource();
         COLORS.forEach((pos,rgb)->{var p=Vec3.atLowerCornerOf(pos).subtract(e.getCamera().getPosition());
             var facing=level.getBlockState(pos).getValue(StageBlock.FACING);

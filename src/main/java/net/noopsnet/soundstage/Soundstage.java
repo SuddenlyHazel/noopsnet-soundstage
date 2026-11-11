@@ -26,8 +26,11 @@ public final class Soundstage {
     public static final Supplier<StageBlock> DESK=block("sound_desk",StageBlock.Kind.DESK);
     public static final Supplier<StageBlock> SPEAKER=block("speaker",StageBlock.Kind.SPEAKER);
     public static final Supplier<StageBlock> LAMP=block("stage_light",StageBlock.Kind.LIGHT);
+    public static final Supplier<StageBlock> LASER=block("laser",StageBlock.Kind.LASER);
+    public static final Supplier<StageBlock> FOG=block("fog_machine",StageBlock.Kind.FOG);
+    public static final Supplier<StageBlock> PARTICLE=block("particle_machine",StageBlock.Kind.PARTICLE);
     public static final Supplier<LinkTool> LINK=ITEMS.register("linking_tool",()->new LinkTool(new Item.Properties().stacksTo(1)));
-    public static final Supplier<BlockEntityType<StageEntity>> ENTITY=ENTITIES.register("equipment",()->BlockEntityType.Builder.of(StageEntity::new,STEREO.get(),DESK.get(),SPEAKER.get(),LAMP.get()).build(null));
+    public static final Supplier<BlockEntityType<StageEntity>> ENTITY=ENTITIES.register("equipment",()->BlockEntityType.Builder.of(StageEntity::new,STEREO.get(),DESK.get(),SPEAKER.get(),LAMP.get(),LASER.get(),FOG.get(),PARTICLE.get()).build(null));
     public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> HOSTS;
     public static final ModConfigSpec.ConfigValue<String> DEMO_URL;
     private static final ModConfigSpec CONFIG;
@@ -36,7 +39,7 @@ public final class Soundstage {
         HOSTS=b.comment("Trusted media hostnames, exact matches. Clients fetch these URLs. Add your relay's public hostname. Playlists/redirects must also be trusted. Loopback is for local testing only.").defineListAllowEmpty("allowedStreamHosts",java.util.List.of(),()->"relay.example.com",o->o instanceof String s && !s.isBlank());
         DEMO_URL=b.comment("Optional public demo stream. Never put a publishing password here.").define("demoStreamUrl", "");
         CONFIG=b.build();
-        TABS.register("soundstage",()->CreativeModeTab.builder().title(Component.literal("Soundstage")).icon(()->new ItemStack(DESK.get())).displayItems((p,o)->{o.accept(STEREO.get());o.accept(DESK.get());o.accept(SPEAKER.get());o.accept(LAMP.get());o.accept(LINK.get());}).build());
+        TABS.register("soundstage",()->CreativeModeTab.builder().title(Component.literal("Soundstage")).icon(()->new ItemStack(DESK.get())).displayItems((p,o)->{o.accept(STEREO.get());o.accept(DESK.get());o.accept(SPEAKER.get());o.accept(LAMP.get());o.accept(LASER.get());o.accept(FOG.get());o.accept(PARTICLE.get());o.accept(LINK.get());}).build());
     }
     private static Supplier<StageBlock> block(String id,StageBlock.Kind kind){
         var block=BLOCKS.register(id,()->new StageBlock(kind,BlockBehaviour.Properties.of().strength(2).sound(SoundType.METAL).noOcclusion()));

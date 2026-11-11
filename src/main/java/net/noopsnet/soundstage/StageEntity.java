@@ -24,6 +24,7 @@ public final class StageEntity extends BlockEntity {
     public int trackIndex,fallbackMode,fallbackColor=0xffbb77;
     public long trackStartedTick,pausedTrackMillis;
     public String group="Main";
+    public final Map<BlockPos,String> names=new LinkedHashMap<>();
     public final Map<BlockPos,String> groups=new LinkedHashMap<>();
     public BlockPos desk;
     public UUID deskId;
@@ -59,7 +60,7 @@ public final class StageEntity extends BlockEntity {
         t.putInt("fallbackMode",fallbackMode);t.putInt("fallbackColor",fallbackColor);t.putString("group",group);
         var tracks=new ListTag();for(var track:playlist){var item=new CompoundTag();item.putString("title",track.title());item.putString("url",track.url());item.putInt("seconds",track.seconds());tracks.add(item);}t.put("playlist",tracks);
         t.putLongArray("speakers",speakers.stream().mapToLong(BlockPos::asLong).toArray());
-        var list=new ListTag();lights.forEach((p,a)->{var l=new CompoundTag();l.putLong("pos",p.asLong());l.putInt("address",a);l.putString("group",groups.getOrDefault(p,"Main"));list.add(l);});t.put("lights",list);
+        var list=new ListTag();lights.forEach((p,a)->{var l=new CompoundTag();l.putLong("pos",p.asLong());l.putInt("address",a);l.putString("group",groups.getOrDefault(p,"Main"));l.putString("name",names.getOrDefault(p,""));list.add(l);});t.put("lights",list);
         var ops=new ListTag();operators.stream().limit(32).forEach(u->ops.add(StringTag.valueOf(u.toString())));t.put("operators",ops);
         if(desk!=null&&deskId!=null){t.putLong("desk",desk.asLong());t.putUUID("deskId",deskId);}
     }
@@ -73,7 +74,7 @@ public final class StageEntity extends BlockEntity {
         trackIndex=Math.clamp(t.getInt("trackIndex"),0,Math.max(0,playlist.size()-1));trackStartedTick=t.getLong("trackStartedTick");pausedTrackMillis=Math.max(0,t.getLong("pausedTrackMillis"));
         fallbackMode=Math.clamp(t.getInt("fallbackMode"),0,2);fallbackColor=t.contains("fallbackColor")?t.getInt("fallbackColor")&0xffffff:0xffbb77;group=t.contains("group")?t.getString("group"):"Main";if(group.length()>32)group="Main";
         speakers.clear();for(long pos:t.getLongArray("speakers")){if(speakers.size()>=32)break;speakers.add(BlockPos.of(pos));}
-        lights.clear();groups.clear();var ls=t.getList("lights",Tag.TAG_COMPOUND);for(int i=0;i<Math.min(64,ls.size());i++){var l=ls.getCompound(i);lights.put(BlockPos.of(l.getLong("pos")),Math.clamp(l.getInt("address"),1,509));String g=l.getString("group");groups.put(BlockPos.of(l.getLong("pos")),g.isBlank()||g.length()>32?"Main":g);}
+        lights.clear();groups.clear();names.clear();var ls=t.getList("lights",Tag.TAG_COMPOUND);for(int i=0;i<Math.min(64,ls.size());i++){var l=ls.getCompound(i);lights.put(BlockPos.of(l.getLong("pos")),Math.clamp(l.getInt("address"),1,509));String name=l.getString("name");if(!name.isBlank()&&name.length()<=48)names.put(BlockPos.of(l.getLong("pos")),name);String g=l.getString("group");groups.put(BlockPos.of(l.getLong("pos")),g.isBlank()||g.length()>32?"Main":g);}
         operators.clear();var ops=t.getList("operators",Tag.TAG_STRING);for(int i=0;i<Math.min(32,ops.size());i++)try{operators.add(UUID.fromString(ops.getString(i)));}catch(IllegalArgumentException ignored){}
         desk=t.contains("desk")?BlockPos.of(t.getLong("desk")):null;deskId=t.hasUUID("deskId")?t.getUUID("deskId"):null;
     }
