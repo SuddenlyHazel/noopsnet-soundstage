@@ -8,8 +8,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.*;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.debug.DebugRenderer;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -51,6 +49,16 @@ public final class SoundstageClient {
             e.getDispatcher().register(Commands.literal("soundstagevolume").then(Commands.argument("percent",IntegerArgumentType.integer(0,100)).executes(c->{personalVolume=IntegerArgumentType.getInteger(c,"percent");savePrefs();return 1;})));
             e.getDispatcher().register(Commands.literal("soundstagemute").executes(c->{mute=!mute;savePrefs();c.getSource().sendSuccess(()->Component.literal(mute?"Soundstage muted":"Soundstage unmuted"),false);return 1;}));
             e.getDispatcher().register(Commands.literal("soundstagelights").executes(c->{lights=!lights;savePrefs();restoreLights();c.getSource().sendSuccess(()->Component.literal(lights?"Soundstage lighting enabled":"Soundstage lighting disabled"),false);return 1;}));
+            e.getDispatcher().register(Commands.literal("soundstagestatus").executes(c->{
+                var mc=Minecraft.getInstance();
+                c.getSource().sendSuccess(()->Component.literal("Lighting "+lights+", brightness "+brightness+"%, particles "+mc.options.particles().get()),false);
+                for(var d:active){
+                    c.getSource().sendSuccess(()->Component.literal("Desk "+d.getBlockPos().toShortString()+": "+status(d.getBlockPos())),false);
+                    for(var p:d.lights.keySet())if(FixtureProfile.at(level,p)!=FixtureProfile.RGB)
+                        c.getSource().sendSuccess(()->Component.literal(p.toShortString()+" "+PerformanceEffects.status(p)),false);
+                }
+                return 1;
+            }));
         });
     }
     private static void loadPrefs(){try(var in=Files.newInputStream(PREFS)){var p=new Properties();p.load(in);personalVolume=Math.clamp(Integer.parseInt(p.getProperty("volume","100")),0,100);mute=Boolean.parseBoolean(p.getProperty("mute","false"));lights=Boolean.parseBoolean(p.getProperty("lights","true"));smoothingMillis=Math.clamp(Integer.parseInt(p.getProperty("smoothingMillis","0")),0,2000);brightness=Math.clamp(Integer.parseInt(p.getProperty("brightness","100")),0,100);}catch(Exception ignored){}}
@@ -127,15 +135,17 @@ public final class SoundstageClient {
         boolean updateAfterlight=System.nanoTime()-lastAfterlight>100_000_000L;
         if(updateAfterlight)lastAfterlight=System.nanoTime();
         if(lights)for(var d:selected){var s=SESSIONS.get(d.id);if(!d.lighting)continue;
+            // Every fixture in this render frame reads the same published universe.
+            var frame=s!=null&&s.player!=null&&d.enabled?s.player.lightingFrame():null;
+            var values=frame==null?null:frame.effects(now);var rgbValues=frame==null?null:frame.rgb(now);
             for(var patch:d.lights.entrySet()){
                 var pos=patch.getKey();if(!level.hasChunkAt(pos)||applied.contains(pos))continue;
                 var profile=FixtureProfile.at(level,pos);
                 if(profile!=FixtureProfile.RGB){
                     if(!(level.getBlockEntity(pos) instanceof StageEntity equipment)||!d.id.equals(equipment.deskId))continue;
-                    var values=s!=null&&s.player!=null&&d.enabled?s.player.channels():null;
                     if(values!=null&&profile.fits(patch.getValue())){PerformanceEffects.cues.put(pos,new PerformanceEffects.Cue(profile,values,patch.getValue()));applied.add(pos);}continue;
                 }
-                int color=s!=null&&s.player!=null&&d.enabled?s.player.color(patch.getValue()):-1;
+                int color=rgbValues!=null?FixtureProfile.color(rgbValues,patch.getValue()):-1;
                 if(color<0)color=d.fallbackMode==1?0:d.fallbackMode==2?d.fallbackColor:-1;
                 if(color<0){SMOOTHED.remove(pos);continue;}
                 int blended=SMOOTHED.computeIfAbsent(pos,p->new LightSmoother()).advance(color,dt,smoothingMillis);
@@ -168,11 +178,11 @@ public final class SoundstageClient {
         COLORS.forEach((pos,rgb)->{var p=Vec3.atLowerCornerOf(pos).subtract(e.getCamera().getPosition());
             var facing=level.getBlockState(pos).getValue(StageBlock.FACING);
             AABB lens=switch(facing){
-                case SOUTH->new AABB(p.x+.12,p.y+.28,p.z+.96,p.x+.88,p.y+.86,p.z+1.006);
-                case EAST->new AABB(p.x+.96,p.y+.28,p.z+.12,p.x+1.006,p.y+.86,p.z+.88);
-                case WEST->new AABB(p.x-.006,p.y+.28,p.z+.12,p.x+.04,p.y+.86,p.z+.88);
-                default->new AABB(p.x+.12,p.y+.28,p.z-.006,p.x+.88,p.y+.86,p.z+.04);};
-            DebugRenderer.renderFilledBox(e.getPoseStack(),buffers,lens,((rgb>>16)&255)/255f,((rgb>>8)&255)/255f,(rgb&255)/255f,1f);
-        });buffers.endBatch(RenderType.debugFilledBox());
+                case SOUTH->new AABB(p.x+.1875,p.y+.3125,p.z+.984,p.x+.8125,p.y+.8125,p.z+.986);
+                case EAST->new AABB(p.x+.984,p.y+.3125,p.z+.1875,p.x+.986,p.y+.8125,p.z+.8125);
+                case WEST->new AABB(p.x+.014,p.y+.3125,p.z+.1875,p.x+.016,p.y+.8125,p.z+.8125);
+                default->new AABB(p.x+.1875,p.y+.3125,p.z+.014,p.x+.8125,p.y+.8125,p.z+.016);};
+            EmissiveGeometry.box(buffers.getBuffer(EmissiveGeometry.type()),e.getPoseStack().last(),lens,rgb);
+        });buffers.endBatch(EmissiveGeometry.type());
     }
 }

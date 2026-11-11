@@ -8,6 +8,13 @@ import java.util.Arrays;
 public final class GridProbe {
     private static void check(boolean ok) { if (!ok) throw new AssertionError(); }
     public static void main(String[] args) throws Exception {
+        int[] cue=new int[512];cue[0]=255;cue[1]=255;
+        var frameHold=new LightingFrame(0,cue);
+        check(frameHold.effects(500_000_000L)==cue);
+        check(frameHold.effects(1_500_000_000L)==null); // stale lasers/fog stop
+        check(frameHold.rgb(1_500_000_000L)==cue); // RGB must not flash saved warm light
+        check(frameHold.rgb(3_000_000_001L)==null); // configured fallback still works
+        check(new LightingFrame(1_600_000_000L,new int[512]).rgb(1_600_000_000L)[0]==0); // blackout immediate
         var pcm=new PcmQueue(48000*4*4);
         // 1.5 seconds of 48 kHz AAC callback blocks: the old 32-chunk queue lost most of these.
         for(int i=0;i<72;i++)check(pcm.offer(new PcmQueue.Packet(new byte[1024*4],i*1024_000_000L/48000,7))==0);

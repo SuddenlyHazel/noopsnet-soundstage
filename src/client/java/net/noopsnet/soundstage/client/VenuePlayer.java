@@ -3,6 +3,7 @@ package net.noopsnet.soundstage.client;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Semaphore;
 import net.noopsnet.soundstage.VrslGrid;
+import net.noopsnet.soundstage.LightingFrame;
 import org.watermedia.api.player.videolan.BasePlayer;
 import org.watermedia.videolan4j.player.base.MediaPlayer;
 import org.watermedia.videolan4j.player.embedded.videosurface.callback.*;
@@ -13,8 +14,7 @@ final class VenuePlayer extends BasePlayer implements RenderCallback,BufferForma
     private final boolean lighting;
     private final SpatialAudio audio;
     private volatile boolean closed;
-    private volatile Frame frame;
-    record Frame(long nanos,int[] channels){}
+    private volatile LightingFrame frame;
     VenuePlayer(boolean lighting){
         this.lighting=lighting;init(null,this,this,this);
         SpatialAudio output=null;
@@ -32,14 +32,15 @@ final class VenuePlayer extends BasePlayer implements RenderCallback,BufferForma
     @Override public void setVolume(int volume){if(audio!=null)audio.position(volume/100.0,0,0);else super.setVolume(volume);}
     @Override public BufferFormat getBufferFormat(int w,int h){return new BufferFormat(Chroma.RV32,w,h);}
     @Override public void allocatedBuffers(ByteBuffer[] buffers){}
-    @Override public void cleanupBuffers(ByteBuffer[] buffers){frame=null;}
+    // VLC may replace native video buffers between HLS segments. The copied
+    // channel array remains valid; its bounded age policy handles a real outage.
+    @Override public void cleanupBuffers(ByteBuffer[] buffers){}
     @Override public void display(MediaPlayer p,ByteBuffer[] buffers,BufferFormat f){
         if(closed||!lighting||buffers.length==0||f.getWidth()!=1920||f.getHeight()<1080||f.getHeight()>1120)return;
         if(!lock.tryAcquire())return;
-        try{var b=buffers[0].duplicate();b.clear();int[] values=new int[512];for(int i=0;i<512;i++)values[i]=VrslGrid.read(b,f.getWidth(),f.getHeight(),i,VrslGrid.Layout.HORIZONTAL_TOP,VrslGrid.Transfer.IDENTITY);frame=new Frame(System.nanoTime(),values);}
+        try{var b=buffers[0].duplicate();b.clear();int[] values=new int[512];for(int i=0;i<512;i++)values[i]=VrslGrid.read(b,f.getWidth(),f.getHeight(),i,VrslGrid.Layout.HORIZONTAL_TOP,VrslGrid.Transfer.IDENTITY);if(!closed)frame=new LightingFrame(System.nanoTime(),values);}
         finally{lock.release();}
     }
-    int[] channels(){var f=frame;return f==null||System.nanoTime()-f.nanos>1_000_000_000L?null:f.channels;}
-    int color(int address){var f=frame;if(f==null||System.nanoTime()-f.nanos>1_000_000_000L)return -1;int i=address-1;int[] v=f.channels;return (v[i+1]*v[i]/255)<<16|(v[i+2]*v[i]/255)<<8|v[i+3]*v[i]/255;}
+    LightingFrame lightingFrame(){return closed?null:frame;}
     @Override public void release(){closed=true;frame=null;if(audio!=null)audio.close();super.release();}
 }

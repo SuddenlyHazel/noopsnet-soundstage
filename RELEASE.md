@@ -1,3 +1,12 @@
+# Soundstage 0.3.0-alpha.3
+
+Community alpha.34 corrects laser/stage-lens rendering with Photon, removes
+overlapping fixture faces, and emits denser fog from the front nozzle so low
+ceilings do not hide it. RGB cues survive short decoder interruptions without
+briefly restoring saved warm light. `/soundstagestatus` reports live fixture
+values and particle creation counts. Compatible with the alpha.32 server;
+restart the client. In-game appearance still needs player validation.
+
 # Soundstage 0.3.0-alpha.2
 
 Community alpha.33 fixes severe audio queue loss with real VLC/HLS streams.

@@ -1,14 +1,14 @@
 {
-  "source_revision": "a92ac5d65d7e48e3ce3865877cb28180d78d3412",
+  "source_revision": "932e5785fdb4bb883fa09846063a5f0fe6cf1364",
   "snapshot_date": "2026-11-11",
   "project": "NoopsNet Soundstage",
   "artifacts": [
     {
-      "filename": "noopsnet-soundstage-0.3.0-alpha.2.jar",
-      "version": "0.3.0-alpha.2",
+      "filename": "noopsnet-soundstage-0.3.0-alpha.3.jar",
+      "version": "0.3.0-alpha.3",
       "hashes": {
-        "sha1": "fc7d798333a5342a30ec08baf12106b85f8a8e8d",
-        "sha512": "a68eae6bb2046fb71ea5d84b842177af5bb2318d8a4011e40ab0060dd1cd0f1a4d1fb62101c1049baff91fc14758f76707ec86852052f560412fffac95e9550a"
+        "sha1": "da5744feb23bf2524b8eba9e918075711f2042c4",
+        "sha512": "5d7390739a7bc1b2f886a47c050936ff29d2540e809cbdc157e59850dd57c52dd2da373fdc77b6b2f76e1eefebe44ece3b3cdf8f0244e7a6bfda2472f9e7ca41"
       }
     }
   ]

@@ -2,7 +2,7 @@ plugins {
     id 'java-library'
     id 'net.neoforged.moddev' version '2.0.148'
 }
-version = '0.3.0-alpha.2'
+version = '0.3.0-alpha.3'
 group = 'net.noopsnet'
 base { archivesName = 'noopsnet-soundstage' }
 java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
@@ -59,6 +59,11 @@ tasks.register('gridProbe', JavaExec) {
     mainClass = 'net.noopsnet.soundstage.GridProbe'
 }
 tasks.named('check') { dependsOn 'gridProbe', 'compileClientJava' }
+tasks.register('effectsGeometryProbe', JavaExec) {
+    dependsOn automationClasses
+    classpath = sourceSets.automation.runtimeClasspath
+    mainClass = 'net.noopsnet.soundstage.client.EffectsGeometryProbe'
+}
 tasks.register('verifyModJar') {
     dependsOn tasks.named('jar')
     doLast {
