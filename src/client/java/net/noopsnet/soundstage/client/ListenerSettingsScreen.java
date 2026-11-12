@@ -94,10 +94,11 @@ final class ListenerSettingsScreen extends Screen {
                 y + 96,
                 "Fog density",
                 SoundstageClient.fogDensity,
-                200,
+                FogDensityPreference.MAX_PERCENT,
                 "%",
                 v -> SoundstageClient.fogDensity = v,
-                "Control haze independently of light brightness. 100% is ordinary stage haze.");
+                "Your haze strength: 0% hides haze, 100% is the stronger standard, 300% triples"
+                        + " it.");
         addRenderableWidget(
                 Button.builder(
                                 Component.literal("Lower effects"),

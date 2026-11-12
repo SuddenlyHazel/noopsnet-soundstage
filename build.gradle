@@ -2,7 +2,7 @@ plugins {
     id 'java-library'
     id 'net.neoforged.moddev' version '2.0.148'
 }
-version = providers.gradleProperty('mod_version').getOrElse('0.3.0-alpha.5')
+version = providers.gradleProperty('mod_version').getOrElse('0.3.0-alpha.6')
 group = 'net.noopsnet'
 base { archivesName = 'noopsnet-soundstage' }
 java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
@@ -19,7 +19,10 @@ sourceSets.test.compileClasspath += sourceSets.client.output + sourceSets.client
 sourceSets.test.runtimeClasspath += sourceSets.client.output + sourceSets.client.runtimeClasspath
 configurations.automationImplementation.extendsFrom configurations.clientImplementation
 configurations.clientImplementation.extendsFrom configurations.implementation
-dependencies { clientImplementation('maven.modrinth:watermedia:yezkkXsZ') { transitive = false } }
+dependencies {
+    clientImplementation('maven.modrinth:watermedia:yezkkXsZ') { transitive = false }
+    clientImplementation('maven.modrinth:owo-lib:wbdHEItB') { transitive = false }
+}
 neoForge {
     enable { version = '21.1.265'; disableRecompilation = true }
     addModdingDependenciesTo sourceSets.gametest
@@ -115,3 +118,17 @@ tasks.register('verifyGameTests') {
 }
 
 tasks.named('jar') { from('LICENSE'); from('NOTICE.md') }
+
+tasks.register('radioStationProbe', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.noopsnet.soundstage.RadioStationProbe'
+}
+tasks.named('check') { dependsOn 'radioStationProbe' }
+
+tasks.register('stereoUiProbe', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.noopsnet.soundstage.StereoUiProbe'
+}
+tasks.named('check') { dependsOn 'stereoUiProbe' }

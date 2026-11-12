@@ -17,20 +17,34 @@ final class DeskScreen extends Screen {
     private final List<PlaylistTrack> tracks;
     private final Map<String, EditBox> fields = new HashMap<>();
     private final List<String> labels = new ArrayList<>();
-    private int tab, selected, patchIndex, x, y;
+    private int tab, selected, patchIndex, radioIndex, x, y;
+    private final List<RadioStation> stations;
     private String error = "";
+    private Screen returnTo;
 
     DeskScreen(StageNetwork.Open p) {
         super(Component.literal("Soundstage"));
         initial = p;
         draft = p.settings();
         tracks = new ArrayList<>(draft.playlist());
+        stations = RadioStation.available(Soundstage.RADIO_STATIONS.get(), Soundstage.HOSTS.get());
+        for (int i = 0; i < stations.size(); i++) {
+            if (stations.get(i).url().equals(draft.url())) radioIndex = i;
+        }
+    }
+
+    static DeskScreen advanced(StageNetwork.Open p, StereoScreen parent) {
+        var screen = new DeskScreen(p);
+        screen.returnTo = parent;
+        return screen;
     }
 
     DeskScreen(StageNetwork.Open p, DeskScreen old) {
         this(p);
+        returnTo = old.returnTo;
         tab = old.tab;
         patchIndex = old.patchIndex;
+        radioIndex = Math.min(old.radioIndex, Math.max(0, stations.size() - 1));
     }
 
     private void button(String title, int dx, int dy, int w, Runnable action) {
@@ -172,14 +186,14 @@ final class DeskScreen extends Screen {
         fields.clear();
         labels.clear();
         var s = draft;
-        String[] tabs = {"Audio", "Playlist", "Lighting", "Patches", "Venue"};
-        for (int i = 0; i < 5; i++) {
+        String[] tabs = {"Audio", "Playlist", "Lighting", "Patches", "Venue", "Radio"};
+        for (int i = 0; i < tabs.length; i++) {
             final int t = i;
             button(
                     tabs[i],
-                    i * 73,
+                    i * 61,
                     8,
-                    69,
+                    55,
                     () -> {
                         capture();
                         tab = t;
@@ -341,6 +355,48 @@ final class DeskScreen extends Screen {
                         capture();
                         minecraft.setScreen(new ListenerSettingsScreen(this));
                     });
+        } else if (tab == 5) {
+            labels.add("0:43:Community radio");
+            if (stations.isEmpty()) {
+                labels.add("0:72:No radio stations are configured on this server.");
+                labels.add("0:90:You can still use a direct stream on the Audio tab.");
+            } else {
+                addRenderableWidget(
+                        CycleButton.<RadioStation>builder(
+                                        station -> Component.literal(station.name()))
+                                .withValues(stations)
+                                .withInitialValue(stations.get(radioIndex))
+                                .displayOnlyValue()
+                                .create(
+                                        x,
+                                        y + 60,
+                                        360,
+                                        20,
+                                        Component.literal("Radio station"),
+                                        (button, station) ->
+                                                radioIndex = stations.indexOf(station)));
+                button(
+                        "Tune in",
+                        0,
+                        94,
+                        175,
+                        () -> {
+                            draft = stations.get(radioIndex).tune(draft);
+                            save();
+                        });
+                button(
+                        "Audio settings",
+                        185,
+                        94,
+                        175,
+                        () -> {
+                            tab = 0;
+                            rebuild();
+                        });
+                labels.add("0:132:Live, shared music. Tune in without restarting the track.");
+                labels.add("0:150:Your volume, range and speaker links stay the same.");
+                labels.add("0:168:Tune in starts audio and turns show lighting off.");
+            }
         } else if (tab == 4) {
             field("Venue group", "Assembly / group to arrange", s.group(), 0, 48, 175, 32);
             field("Venue address", "Starting DMX address", "" + s.address(), 185, 48, 175, 3);
@@ -450,6 +506,8 @@ final class DeskScreen extends Screen {
 
     private void save() {
         send();
+        if (returnTo instanceof StereoScreen stereo)
+            stereo.update(new StageNetwork.Open(initial.pos(), draft, initial.patches()));
         onClose();
     }
 
@@ -489,6 +547,12 @@ final class DeskScreen extends Screen {
                     0xcccccc);
         }
         if (!error.isEmpty()) g.drawString(font, error, x, y + 191, 0xff7777);
+    }
+
+    @Override
+    public void onClose() {
+        if (returnTo != null) minecraft.setScreen(returnTo);
+        else super.onClose();
     }
 
     @Override

@@ -51,6 +51,7 @@ public final class Soundstage {
                                     .build(null));
     public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> HOSTS;
     public static final ModConfigSpec.ConfigValue<String> DEMO_URL;
+    public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> RADIO_STATIONS;
     private static final ModConfigSpec CONFIG;
 
     static {
@@ -68,6 +69,18 @@ public final class Soundstage {
         DEMO_URL =
                 b.comment("Optional public demo stream. Never put a publishing password here.")
                         .define("demoStreamUrl", "");
+        RADIO_STATIONS =
+                b.comment(
+                                "Named live radio stations, synced to players. Each entry is Name |"
+                                        + " URL.",
+                                "URLs must also match allowedStreamHosts. No publish credentials.",
+                                "The Stereo and Sound Desk Radio tab offers up to 32 distinct"
+                                        + " streams.")
+                        .defineListAllowEmpty(
+                                "radioStations",
+                                java.util.List.of(),
+                                () -> "Station name | https://relay.example.com/radio/index.m3u8",
+                                RadioStation::validEntry);
         CONFIG = b.build();
         TABS.register(
                 "soundstage",

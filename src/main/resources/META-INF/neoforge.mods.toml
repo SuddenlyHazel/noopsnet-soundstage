@@ -27,3 +27,9 @@ modId="noopsnet_neon"
 type="optional"
 versionRange="[0.5.1,)"
 side="BOTH"
+
+[[dependencies.noopsnet_soundstage]]
+modId="owo"
+type="required"
+versionRange="[0.12.15.6-beta.1,0.13)"
+side="CLIENT"

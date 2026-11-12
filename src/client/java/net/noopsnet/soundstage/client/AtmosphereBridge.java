@@ -13,7 +13,7 @@ import java.util.*;
 /** Optional API: Soundstage still works without Afterlight/Iris or the paired pack. */
 final class AtmosphereBridge {
     private static Method submit, reset, density;
-    private static boolean lookedUp, failed;
+    private static boolean lookedUp, failed, directedFog;
     static boolean volumetric;
 
     private record Beam(Vec3 origin, Vec3 direction, double length) {}
@@ -26,6 +26,14 @@ final class AtmosphereBridge {
                         Class.forName("net.noopsnet.neon.client.AfterlightAtmosphere")
                                 .getMethod("submit", double[].class, double[].class);
                 reset = submit.getDeclaringClass().getMethod("clear");
+                try {
+                    submit =
+                            submit.getDeclaringClass()
+                                    .getMethod("submitDirected", double[].class, double[].class);
+                    directedFog = true;
+                } catch (NoSuchMethodException ignored) {
+                    directedFog = false;
+                }
             } catch (ReflectiveOperationException | LinkageError ignored) {
                 submit = null;
                 reset = null;
@@ -68,11 +76,13 @@ final class AtmosphereBridge {
             var state = mc.level.getBlockState(entry.getKey());
             if (!state.hasProperty(StageBlock.FACING)) continue;
             var facing = state.getValue(StageBlock.FACING);
-            if (cue.profile() == FixtureProfile.FOG && fog.size() < 8 * 5) {
+            if (cue.profile() == FixtureProfile.FOG && fog.size() < 8 * (directedFog ? 7 : 5)) {
                 var p =
                         Vec3.atCenterOf(entry.getKey())
                                 .add(facing.getStepX() * .9, .1, facing.getStepZ() * .9);
                 Collections.addAll(fog, p.x, p.y, p.z, power, cue.values()[i + 1] / 255.0);
+                if (directedFog)
+                    Collections.addAll(fog, (double) facing.getStepX(), (double) facing.getStepZ());
             } else if (cue.profile() == FixtureProfile.LASER
                     && SoundstageClient.showLasers
                     && beams.size() < 8 * 16) {

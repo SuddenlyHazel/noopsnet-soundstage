@@ -105,10 +105,16 @@ public final class SoundstageClient {
         StageNetwork.openClient =
                 p -> {
                     var mc = Minecraft.getInstance();
-                    mc.setScreen(
-                            mc.screen instanceof DeskScreen old
-                                    ? new DeskScreen(p, old)
-                                    : new DeskScreen(p));
+                    if (mc.screen instanceof StereoScreen stereo) {
+                        stereo.update(p);
+                    } else if (mc.screen instanceof DeskScreen old) {
+                        mc.setScreen(new DeskScreen(p, old));
+                    } else if (mc.level != null
+                            && mc.level.getBlockState(p.pos()).getBlock()
+                                    instanceof StageBlock block
+                            && block.kind == StageBlock.Kind.STEREO) {
+                        mc.setScreen(new StereoScreen(p));
+                    } else mc.setScreen(new DeskScreen(p));
                 };
         StageNetwork.openFixtureClient =
                 p -> Minecraft.getInstance().setScreen(new FixtureControlScreen(p));
@@ -260,7 +266,10 @@ public final class SoundstageClient {
                     Math.clamp(Integer.parseInt(p.getProperty("smoothingMillis", "0")), 0, 2000);
             brightness = percent(p, "brightness");
             particleDensity = percent(p, "particleDensity");
-            fogDensity = Math.clamp(Integer.parseInt(p.getProperty("fogDensity", "100")), 0, 200);
+            fogDensity =
+                    FogDensityPreference.load(
+                            Integer.parseInt(p.getProperty("fogDensity", "100")),
+                            Integer.parseInt(p.getProperty("fogDensityScaleVersion", "1")));
             showFog = Boolean.parseBoolean(p.getProperty("fog", "true"));
             showLasers = Boolean.parseBoolean(p.getProperty("lasers", "true"));
             laserSmoothing = Boolean.parseBoolean(p.getProperty("laserSmoothing", "true"));
@@ -281,6 +290,7 @@ public final class SoundstageClient {
         p.setProperty("brightness", "" + brightness);
         p.setProperty("particleDensity", "" + particleDensity);
         p.setProperty("fogDensity", "" + fogDensity);
+        p.setProperty("fogDensityScaleVersion", "" + FogDensityPreference.SCALE_VERSION);
         p.setProperty("fog", "" + showFog);
         p.setProperty("lasers", "" + showLasers);
         p.setProperty("laserSmoothing", "" + laserSmoothing);
@@ -825,6 +835,16 @@ public final class SoundstageClient {
         MANUAL_INPUTS.clear();
         PerformanceEffects.cues.clear();
         AtmosphereBridge.clear();
+    }
+
+    static void retry(BlockPos p) {
+        if (level == null || !(level.getBlockEntity(p) instanceof StageEntity d)) return;
+        var session = SESSIONS.get(d.id);
+        if (session == null) return;
+        session.close();
+        session.retry = 0;
+        session.failures = 0;
+        session.status = "Connecting";
     }
 
     static String status(BlockPos p) {

@@ -471,8 +471,10 @@ public final class StageNetwork {
                                 return;
                             }
                             desk.apply(s);
-                            player.displayClientMessage(
-                                    Component.literal("Soundstage settings saved."), true);
+                            if (desk.getBlockState().getBlock() instanceof StageBlock block
+                                    && block.kind != StageBlock.Kind.STEREO)
+                                player.displayClientMessage(
+                                        Component.literal("Soundstage settings saved."), true);
                         })
                 .playToServer(
                         EditPatch.TYPE,
