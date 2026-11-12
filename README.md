@@ -30,3 +30,7 @@ This is an alpha; live multiplayer testing and cross-platform playback remain ha
 ## Venue release 0.3.0-alpha.1
 
 See [venue setup, fixture channels and QLC+ export](VENUES.md).
+
+## Version 0.3.0-alpha.5
+
+Fixtures now support [individual manual controls](MANUAL-FIXTURES.md), including standalone fog machines. QLC+ venue exports include a measured stage layout and fixture groups, and laser smoothing can be adjusted per listener. The paired Afterlight 0.5.4 and Photon shader provide source-first volumetric haze.

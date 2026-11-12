@@ -12,7 +12,14 @@ public final class DecodeFrame {
         StringBuilder result = new StringBuilder("[");
         for (int i = 0; i < 512; i++) {
             if (i > 0) result.append(',');
-            result.append(VrslGrid.read(frame, 1920, 1080, i, VrslGrid.Layout.HORIZONTAL_TOP, VrslGrid.Transfer.IDENTITY));
+            result.append(
+                    VrslGrid.read(
+                            frame,
+                            1920,
+                            1080,
+                            i,
+                            VrslGrid.Layout.HORIZONTAL_TOP,
+                            VrslGrid.Transfer.IDENTITY));
         }
         System.out.println(result.append(']'));
     }

@@ -49,7 +49,8 @@ other groups. Automatic patching considers all fixtures and removes overlaps.
 Click **Export QLC+ show patch** in Venue. The client writes a timestamped folder
 under `minecraft/soundstage-exports/` containing:
 
-- `venue.qxw`: a QLC+ workspace with named fixtures and their DMX patch.
+- `venue.qxw`: a QLC+ workspace with named fixtures, groups, DMX patch and a
+  2D/3D stage layout.
 - Four `.qxf` fixture definitions for RGB lights, lasers, fog and particles.
 - `patch.csv`: names, groups, addresses, channel counts and world coordinates.
 - `README.txt`: import and signal-routing instructions.
@@ -60,6 +61,12 @@ Matrices or Shows in QLC+. Set Universe 1's Art-Net output to HNode and match it
 first universe. Capture the 1920×1080 horizontal-top monochrome grid in OBS with
 your performance audio. Use the existing [relay instructions](https://noops.world/soundstage.html).
 QLC+ uses zero-based addresses internally; the game and CSV show 1-based addresses.
+In the stage view, one Minecraft block is one metre: X runs east, Y up, and Z
+south, translated to a padded local origin. QLC+ stores those positions in
+millimetres. The stage grid is sized around the fixtures; each QLC+ group lists
+its fixtures in patch order. In-game patch data does not include fixture facing,
+so the exporter leaves their preview orientation unspecified. Existing CSV world
+coordinates and DMX assignments are unchanged.
 Export never includes the stream URL, publishing credentials, or a recorded show.
 Definitions are validated against QLC+'s upstream schema; opening/programming the
 workspace in the QLC+ GUI remains an external-tool acceptance check.
@@ -75,12 +82,19 @@ workspace in the QLC+ GUI remains an external-tool acceptance check.
 
 All channels use 0–255. Laser pan covers -180° to +180° relative to the placed
 block's facing; tilt runs from up (0), through level (127/128), to down (255).
-Beams stop at solid collisions and extend at most 32 blocks. Fog uses drifting
-smoke particles; particles use colored dust. This is not volumetric haze or
-vector-image laser projection. Existing shaders may alter the appearance, so
-check the scene in game. Brightness and `/soundstagelights` apply locally; stale
-control data stops machines and lasers instead of latching them on. Particles
+Beams stop at solid collisions and extend at most 32 blocks. With the paired
+Afterlight/Photon pack, fog machines fill a bounded volumetric haze: new emission
+starts thickest near its nozzle and advances through connected open space.
+Existing haze dissipates after emission stops. Without the shader bridge, fog
+uses drifting smoke particles. Particle machines use colored dust. Lasers do
+not project vector images. Brightness and `/soundstagelights` apply locally;
+stale show data stops machines and lasers instead of latching them on. Particles
 already emitted fade naturally. Particle emission is capped at 32 per client tick.
+
+Right-click an individual fixture for [manual controls](MANUAL-FIXTURES.md),
+including standalone fog machines. Manual control takes precedence over a show
+until **Return to show** is selected. Listener **Laser smoothing** softens normal
+tracking while preserving abrupt movements; disabling it uses raw DMX aim.
 
 ## Spatial audio
 
@@ -109,4 +123,6 @@ Manual Minecraft appearance/listening and QLC+ GUI checks remain unverified.
 Sources: [OpenAL Soft](https://openal-soft.org/),
 [LWJGL context isolation](https://github.com/LWJGL/lwjgl3/blob/master/modules/lwjgl/openal/src/main/java/org/lwjgl/openal/AL.java),
 [QLC+ fixture editor](https://docs.qlcplus.org/v5/fixture-definition-editor),
+[QLC+ 3D view](https://docs.qlcplus.org/v5/fixtures-and-functions/3d-view),
+[QLC+ 5.3.1 workspace monitor parser](https://github.com/mcallegari/qlcplus/blob/87b988ac2427fe40a1c1e58be9ace62c41b17292/engine/src/monitorproperties.cpp),
 [QLC+ schema](https://github.com/mcallegari/qlcplus/blob/master/resources/schemas/fixture.xsd).

@@ -2,7 +2,7 @@ plugins {
     id 'java-library'
     id 'net.neoforged.moddev' version '2.0.148'
 }
-version = '0.3.0-alpha.4'
+version = providers.gradleProperty('mod_version').getOrElse('0.3.0-alpha.5')
 group = 'net.noopsnet'
 base { archivesName = 'noopsnet-soundstage' }
 java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
@@ -15,6 +15,8 @@ sourceSets.client.compileClasspath += sourceSets.main.output
 sourceSets.client.runtimeClasspath += sourceSets.main.output
 sourceSets.automation.compileClasspath += sourceSets.main.output + sourceSets.client.output
 sourceSets.automation.runtimeClasspath += sourceSets.main.output + sourceSets.client.output
+sourceSets.test.compileClasspath += sourceSets.client.output + sourceSets.client.compileClasspath
+sourceSets.test.runtimeClasspath += sourceSets.client.output + sourceSets.client.runtimeClasspath
 configurations.automationImplementation.extendsFrom configurations.clientImplementation
 configurations.clientImplementation.extendsFrom configurations.implementation
 dependencies { clientImplementation('maven.modrinth:watermedia:yezkkXsZ') { transitive = false } }
@@ -23,6 +25,7 @@ neoForge {
     addModdingDependenciesTo sourceSets.gametest
     addModdingDependenciesTo sourceSets.client
     addModdingDependenciesTo sourceSets.automation
+    addModdingDependenciesTo sourceSets.test
     mods { noopsnet_soundstage { sourceSet sourceSets.main; sourceSet sourceSets.client; sourceSet sourceSets.automation; sourceSet sourceSets.gametest } }
     runs {
         gameTestServer {
@@ -38,6 +41,18 @@ neoForge {
             sourceSet = sourceSets.automation
             if (providers.gradleProperty('probeHeap').isPresent())
                 jvmArguments.add '-Xmx' + providers.gradleProperty('probeHeap').get()
+            if (providers.gradleProperty('probeGcLog').isPresent())
+                jvmArguments.add '-Xlog:gc*:file=' + providers.gradleProperty('probeGcLog').get() + ':time,uptime,level,tags'
+            if (providers.gradleProperty('probeJavaAgent').isPresent()) {
+                if (providers.gradleProperty('probeInstance').getOrElse('client') != 'cinematic-lab')
+                    throw new GradleException('The diagnostic agent is restricted to the disposable cinematic lab')
+                def agent = file(providers.gradleProperty('probeJavaAgent').get()).canonicalFile
+                def expected = file('../../shaders/noopsnet-cinematic/build/lab-diagnostics/agent.jar').canonicalFile
+                def lab = file('run/cinematic-lab').canonicalFile
+                if (agent != expected || !agent.isFile() || !new File(lab, 'cinematic-lab.marker').isFile())
+                    throw new GradleException('Expected the built lab diagnostic agent and disposable lab marker')
+                jvmArguments.add '-javaagent:' + agent.path + '=' + lab.path
+            }
             gameDirectory = file('run/' + providers.gradleProperty('probeInstance').getOrElse('client'))
             programArguments.addAll '--width', '1280', '--height', '720'
             if (providers.gradleProperty('testWorld').isPresent())
@@ -59,6 +74,18 @@ tasks.register('gridProbe', JavaExec) {
     mainClass = 'net.noopsnet.soundstage.GridProbe'
 }
 tasks.named('check') { dependsOn 'gridProbe', 'compileClientJava' }
+tasks.named('compileTestJava') { dependsOn 'compileClientJava' }
+tasks.register('showExportProbe', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.noopsnet.soundstage.ShowExportProbe'
+}
+tasks.register('manualFixtureProbe', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.noopsnet.soundstage.ManualFixtureProbe'
+}
+tasks.named('check') { dependsOn 'showExportProbe', 'manualFixtureProbe' }
 tasks.register('effectsGeometryProbe', JavaExec) {
     dependsOn automationClasses
     classpath = sourceSets.automation.runtimeClasspath
